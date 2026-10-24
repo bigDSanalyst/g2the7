@@ -246,7 +246,19 @@ Translating the discrete affine mapping into hardware vector instructions via E-
   ```
 
 ---
+🔗 Integration: The `pq-verify` Bridge
+Generating highly optimized SIMD code is only half the battle; proving it matches the mathematical specification is the other. The AGL(7,2) Workbench is the **Generator** in a two-part ecosystem. 
 
+Every batch export from this workbench produces:
+1. **The Lean 4 Specification:** The `AGL72Element` Mathlib4 proof.
+2. **The C Header & CBMC Harness:** Loop invariants and bounds ready for formal verification.
+3. **The AVX-512/ARM NEON Assembly:** Lowered via E-graphs.
+
+These artifacts are designed to be piped directly into **`pq-verify`**, the open-source SOTA verification engine. `pq-verify` uses CBMC with the 2026 SAT Competition winner (Kissat) to prove the generated C code is undefined-behavior-free, and uses Valgrind to prove it is constant-time. 
+
+**Generator (AGL72) \(\to\) Verifier (`pq-verify`) \(\to\) Silicon.**
+
+*Link to Verifier:* [https://github.com/bigDSanalyst/pq-verify](https://github.com/bigDSanalyst/pq-verify)
 ## 📖 Citations & References
 
 1. **Kyber / ML-KEM**: NIST FIPS 203 Module-Lattice-Based Key-Encapsulation Mechanism Standard.
