@@ -1,7 +1,7 @@
 /**
  * E-Graph & AI-Synthesized Multi-Target SIMD Code Generator View
  * Supports x86 AVX2, AVX-512 GFNI, ARM NEON, WebAssembly SIMD128, and CUDA
- * Includes comparative execution latency table and instruction count model (AVX-512 vs. ARM NEON).
+ * Includes comprehensive comparative execution latency table and instruction count model (AVX-512 vs. ARM NEON).
  */
 
 import React, { useState } from 'react';
@@ -27,6 +27,9 @@ import {
   Layers,
   ChevronDown,
   ChevronUp,
+  BarChart3,
+  Table,
+  Zap,
 } from 'lucide-react';
 
 interface SimdCodegenViewProps {
@@ -42,6 +45,7 @@ export const SimdCodegenView: React.FC<SimdCodegenViewProps> = ({
   const [copied, setCopied] = useState<boolean>(false);
   const [batchSize, setBatchSize] = useState<number>(256);
   const [expandedArch, setExpandedArch] = useState<string | null>('avx512');
+  const [latencyViewMode, setLatencyViewMode] = useState<'table' | 'faceoff' | 'chart'>('table');
 
   const egraphStages = getEGraphStages(matrix, displacementK);
   const codegenResult = generateSIMDCode(selectedTarget, matrix, displacementK);
@@ -124,254 +128,407 @@ export const SimdCodegenView: React.FC<SimdCodegenViewProps> = ({
 
       {/* Comparative Latency & Execution Cycle Estimation Section */}
       <div className="p-5 rounded-lg bg-[#0e121d] border border-slate-800 space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pb-3 border-b border-slate-800">
           <div>
             <h4 className="text-xs font-semibold uppercase tracking-wider text-white flex items-center gap-2">
               <Activity className="w-4 h-4 text-cyan-400" />
-              Comparative Latency & Execution Cycle Estimation
+              Comparative Architecture Latency & Execution Cycle Estimation
             </h4>
             <p className="text-xs text-slate-400 mt-0.5">
-              Cycle latency and instruction count modeling across architectures based on vector register width and instruction dispatch ports.
+              Estimates instruction counts and execution cycles for synthesized code across architectures (AVX-512 vs. ARM NEON).
             </p>
           </div>
 
-          {/* Interactive Batch Size Selector */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-mono text-slate-400">NTT Transform Size:</span>
+          <div className="flex flex-wrap items-center gap-3">
+            {/* View Mode Toggle */}
             <div className="flex items-center bg-[#151b2a] p-1 rounded-md border border-slate-800 text-xs font-mono">
-              {[256, 512, 1024, 4096].map((sz) => (
-                <button
-                  key={sz}
-                  onClick={() => setBatchSize(sz)}
-                  className={`px-2.5 py-1 rounded transition-colors cursor-pointer ${
-                    batchSize === sz
-                      ? 'bg-cyan-400 text-slate-950 font-bold'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  n={sz}
-                </button>
-              ))}
+              <button
+                onClick={() => setLatencyViewMode('table')}
+                className={`px-2.5 py-1 rounded transition-colors cursor-pointer flex items-center gap-1.5 ${
+                  latencyViewMode === 'table'
+                    ? 'bg-cyan-400 text-slate-950 font-bold'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Table className="w-3 h-3" />
+                Table View
+              </button>
+              <button
+                onClick={() => setLatencyViewMode('faceoff')}
+                className={`px-2.5 py-1 rounded transition-colors cursor-pointer flex items-center gap-1.5 ${
+                  latencyViewMode === 'faceoff'
+                    ? 'bg-cyan-400 text-slate-950 font-bold'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Zap className="w-3 h-3" />
+                AVX-512 vs NEON
+              </button>
+              <button
+                onClick={() => setLatencyViewMode('chart')}
+                className={`px-2.5 py-1 rounded transition-colors cursor-pointer flex items-center gap-1.5 ${
+                  latencyViewMode === 'chart'
+                    ? 'bg-cyan-400 text-slate-950 font-bold'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <BarChart3 className="w-3 h-3" />
+                Cycle Graph
+              </button>
+            </div>
+
+            {/* Batch Size Selector */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-mono text-slate-400">Transform n:</span>
+              <div className="flex items-center bg-[#151b2a] p-1 rounded-md border border-slate-800 text-xs font-mono">
+                {[128, 256, 512, 1024].map((sz) => (
+                  <button
+                    key={sz}
+                    onClick={() => setBatchSize(sz)}
+                    className={`px-2 py-0.5 rounded transition-colors cursor-pointer ${
+                      batchSize === sz
+                        ? 'bg-cyan-500/30 text-cyan-300 font-bold border border-cyan-500/50'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    {sz}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Highlighted Direct Comparison Card: AVX-512 vs. ARM NEON */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 rounded-lg bg-[#07090e] border border-cyan-500/30">
-          {/* AVX-512 Side */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-cyan-300 font-mono">
-                x86-64 AVX-512 + GFNI
-              </span>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">
-                Hardware Native GF(2)
-              </span>
-            </div>
-            <div className="grid grid-cols-3 gap-2 text-xs font-mono">
-              <div className="p-2 rounded bg-[#10141f] border border-slate-800">
-                <span className="text-[10px] text-slate-400 uppercase">Total Instructions</span>
-                <div className="text-sm font-semibold text-white mt-0.5">
-                  {avx512Row.totalInstructions} instrs
+        {/* View 1: Direct Face-Off (AVX-512 vs. ARM NEON) */}
+        {latencyViewMode === 'faceoff' && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* AVX-512 Side */}
+              <div className="p-4 rounded-lg bg-[#07090e] border border-cyan-500/40 space-y-3">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                  <div>
+                    <span className="text-sm font-bold text-cyan-300 font-mono">
+                      x86-64 AVX-512 + GFNI
+                    </span>
+                    <div className="text-[10px] text-slate-400">
+                      Intel Ice Lake, Sapphire Rapids / AMD Zen 4, Zen 5
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-semibold">
+                    1 Hardware Instr / Block
+                  </span>
                 </div>
-              </div>
-              <div className="p-2 rounded bg-[#10141f] border border-slate-800">
-                <span className="text-[10px] text-slate-400 uppercase">Estimated Cycles</span>
-                <div className="text-sm font-semibold text-emerald-400 mt-0.5">
-                  {avx512Row.estimatedCycles} cycles
-                </div>
-              </div>
-              <div className="p-2 rounded bg-[#10141f] border border-slate-800">
-                <span className="text-[10px] text-slate-400 uppercase">Cycles / Element</span>
-                <div className="text-sm font-semibold text-cyan-300 mt-0.5">
-                  {avx512Row.cyclesPerElement}
-                </div>
-              </div>
-            </div>
-            <p className="text-[11px] text-slate-400 leading-relaxed">
-              <strong className="text-slate-200">1 single instruction</strong> (<code className="text-cyan-300">vgf2p8affineqb</code>) transforms 64 parallel elements directly in hardware with zero bit-slicing or mask overhead.
-            </p>
-          </div>
 
-          {/* ARM NEON Side */}
-          <div className="space-y-2 border-t md:border-t-0 md:border-l border-slate-800 md:pl-4 pt-2 md:pt-0">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-amber-300 font-mono">
-                ARM NEON (ASIMD)
-              </span>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">
-                128-bit Vector Table (VTBL)
-              </span>
-            </div>
-            <div className="grid grid-cols-3 gap-2 text-xs font-mono">
-              <div className="p-2 rounded bg-[#10141f] border border-slate-800">
-                <span className="text-[10px] text-slate-400 uppercase">Total Instructions</span>
-                <div className="text-sm font-semibold text-white mt-0.5">
-                  {neonRow.totalInstructions} instrs
+                <div className="grid grid-cols-3 gap-2 text-xs font-mono">
+                  <div className="p-2 rounded bg-[#10141f] border border-slate-800">
+                    <span className="text-[10px] text-slate-400 uppercase">Total Instrs</span>
+                    <div className="text-base font-bold text-white mt-0.5 tabular-nums">
+                      {avx512Row.totalInstructions}
+                    </div>
+                    <span className="text-[9px] text-slate-400">for n={batchSize}</span>
+                  </div>
+                  <div className="p-2 rounded bg-[#10141f] border border-slate-800">
+                    <span className="text-[10px] text-slate-400 uppercase">Est. Cycles</span>
+                    <div className="text-base font-bold text-emerald-400 mt-0.5 tabular-nums">
+                      {avx512Row.estimatedCycles}
+                    </div>
+                    <span className="text-[9px] text-slate-400">at 1 IPC GFNI</span>
+                  </div>
+                  <div className="p-2 rounded bg-[#10141f] border border-slate-800">
+                    <span className="text-[10px] text-slate-400 uppercase">Cyc / Element</span>
+                    <div className="text-base font-bold text-cyan-300 mt-0.5 tabular-nums">
+                      {avx512Row.cyclesPerElement}
+                    </div>
+                    <span className="text-[9px] text-slate-400">0.020 cycles</span>
+                  </div>
                 </div>
-              </div>
-              <div className="p-2 rounded bg-[#10141f] border border-slate-800">
-                <span className="text-[10px] text-slate-400 uppercase">Estimated Cycles</span>
-                <div className="text-sm font-semibold text-slate-200 mt-0.5">
-                  {neonRow.estimatedCycles} cycles
-                </div>
-              </div>
-              <div className="p-2 rounded bg-[#10141f] border border-slate-800">
-                <span className="text-[10px] text-slate-400 uppercase">Cycles / Element</span>
-                <div className="text-sm font-semibold text-amber-300 mt-0.5">
-                  {neonRow.cyclesPerElement}
-                </div>
-              </div>
-            </div>
-            <p className="text-[11px] text-slate-400 leading-relaxed">
-              Requires 4-bit nibble decomposition (<code className="text-amber-300">vandq_u8</code>, <code className="text-amber-300">vshrq_n_u8</code>), dual table lookups (<code className="text-amber-300">vqtbl1q_u8</code>), and XOR recombination across 128-bit lanes.
-            </p>
-          </div>
-        </div>
 
-        {/* Ratio Callout */}
-        <div className="p-3 rounded bg-cyan-950/20 border border-cyan-500/30 flex flex-wrap items-center justify-between gap-3 text-xs font-mono text-cyan-300">
-          <div className="flex items-center gap-2">
-            <TrendingDown className="w-4 h-4 text-emerald-400" />
-            <span>
-              AVX-512 GFNI delivers <strong>{instructionReductionRatio}× fewer instructions</strong> and <strong>{speedupAdvantage}× lower execution latency</strong> vs. ARM NEON for n={batchSize}.
+                {/* Instruction Breakdown List */}
+                <div className="p-2.5 rounded bg-[#10141f] border border-slate-800/80 font-mono text-xs space-y-1.5">
+                  <span className="text-[10px] uppercase text-slate-400 block font-semibold">
+                    Synthesized Instructions (n={batchSize})
+                  </span>
+                  {avx512Row.breakdown.map((item, idx) => (
+                    <div key={idx} className="flex items-center justify-between text-[11px]">
+                      <span className="text-cyan-300 font-semibold">
+                        {item.totalCount}× <code className="text-white">{item.mnemonic}</code>
+                      </span>
+                      <span className="text-slate-400 text-[10px]">{item.purpose}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <p className="text-[11px] text-slate-400 leading-relaxed">
+                  <strong className="text-slate-200">Hardware Native:</strong> The <code className="text-cyan-300">vgf2p8affineqb</code> instruction directly computes M · x ⊕ k over GF(2) across 64 elements simultaneously in 1 clock cycle without masks or shifts.
+                </p>
+              </div>
+
+              {/* ARM NEON Side */}
+              <div className="p-4 rounded-lg bg-[#07090e] border border-amber-500/40 space-y-3">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                  <div>
+                    <span className="text-sm font-bold text-amber-300 font-mono">
+                      ARM NEON (ASIMD)
+                    </span>
+                    <div className="text-[10px] text-slate-400">
+                      Apple Silicon M1-M4, ARM Cortex-X2/X3, AWS Graviton 3/4
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 font-semibold">
+                    7 Vector Instrs / Block
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 text-xs font-mono">
+                  <div className="p-2 rounded bg-[#10141f] border border-slate-800">
+                    <span className="text-[10px] text-slate-400 uppercase">Total Instrs</span>
+                    <div className="text-base font-bold text-white mt-0.5 tabular-nums">
+                      {neonRow.totalInstructions}
+                    </div>
+                    <span className="text-[9px] text-slate-400">for n={batchSize}</span>
+                  </div>
+                  <div className="p-2 rounded bg-[#10141f] border border-slate-800">
+                    <span className="text-[10px] text-slate-400 uppercase">Est. Cycles</span>
+                    <div className="text-base font-bold text-amber-300 mt-0.5 tabular-nums">
+                      {neonRow.estimatedCycles}
+                    </div>
+                    <span className="text-[9px] text-slate-400">dual-issue pipes</span>
+                  </div>
+                  <div className="p-2 rounded bg-[#10141f] border border-slate-800">
+                    <span className="text-[10px] text-slate-400 uppercase">Cyc / Element</span>
+                    <div className="text-base font-bold text-amber-300 mt-0.5 tabular-nums">
+                      {neonRow.cyclesPerElement}
+                    </div>
+                    <span className="text-[9px] text-slate-400">0.139 cycles</span>
+                  </div>
+                </div>
+
+                {/* Instruction Breakdown List */}
+                <div className="p-2.5 rounded bg-[#10141f] border border-slate-800/80 font-mono text-xs space-y-1.5">
+                  <span className="text-[10px] uppercase text-slate-400 block font-semibold">
+                    Synthesized Instructions (n={batchSize})
+                  </span>
+                  {neonRow.breakdown.map((item, idx) => (
+                    <div key={idx} className="flex items-center justify-between text-[11px]">
+                      <span className="text-amber-300 font-semibold">
+                        {item.totalCount}× <code className="text-white">{item.mnemonic}</code>
+                      </span>
+                      <span className="text-slate-400 text-[10px]">{item.purpose}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <p className="text-[11px] text-slate-400 leading-relaxed">
+                  <strong className="text-slate-200">Table Decomposition:</strong> Requires 4-bit nibble splits (<code className="text-amber-300">vandq_u8</code>, <code className="text-amber-300">vshrq_n_u8</code>), dual 16-byte table lookups (<code className="text-amber-300">vqtbl1q_u8</code>), and XOR merge (<code className="text-amber-300">veorq_u8</code>).
+                </p>
+              </div>
+            </div>
+
+            {/* Summary Ratio Bar */}
+            <div className="p-3.5 rounded bg-[#07090e] border border-cyan-500/30 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-mono">
+              <div className="flex items-center gap-2 text-cyan-300">
+                <TrendingDown className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>
+                  <strong>AVX-512 Advantage:</strong> {instructionReductionRatio}× fewer instructions and {speedupAdvantage}× lower cycle latency vs. ARM NEON.
+                </span>
+              </div>
+              <div className="text-emerald-400 text-[11px]">
+                Both architectures achieve 0 branch mispredictions
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* View 2: Full Comparative Table */}
+        {latencyViewMode === 'table' && (
+          <div className="space-y-3">
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs font-mono text-left">
+                <thead>
+                  <tr className="border-b border-slate-800 text-slate-400 bg-[#07090e]/60">
+                    <th className="py-2 px-2.5">Architecture Target</th>
+                    <th className="py-2 px-2">Register Width</th>
+                    <th className="py-2 px-2 text-center">Elements / Vector</th>
+                    <th className="py-2 px-2 text-center">Instrs / Block</th>
+                    <th className="py-2 px-2 text-right">Total Instrs (n={batchSize})</th>
+                    <th className="py-2 px-2 text-right">Est. Cycles</th>
+                    <th className="py-2 px-2 text-right">Cycles / Element</th>
+                    <th className="py-2 px-2 text-right text-emerald-400">Speedup vs. Scalar</th>
+                    <th className="py-2 px-2 text-center">Inspect</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60">
+                  {latencyRows.map((row) => {
+                    const isAvx512 = row.archId === 'avx512';
+                    const isNeon = row.archId === 'neon';
+                    const isExpanded = expandedArch === row.archId;
+
+                    return (
+                      <React.Fragment key={row.archId}>
+                        <tr
+                          className={`transition-colors cursor-pointer ${
+                            isAvx512
+                              ? 'bg-cyan-500/10 hover:bg-cyan-500/15'
+                              : isNeon
+                              ? 'bg-amber-500/10 hover:bg-amber-500/15'
+                              : 'hover:bg-slate-800/20'
+                          }`}
+                          onClick={() => setExpandedArch(isExpanded ? null : row.archId)}
+                        >
+                          <td className="py-2 px-2.5 whitespace-nowrap">
+                            <div className="font-semibold text-white flex items-center gap-1.5">
+                              {row.name}
+                              {isAvx512 && (
+                                <span className="text-[9px] px-1.5 py-0.2 rounded bg-cyan-400 text-slate-950 font-bold">
+                                  FASTEST
+                                </span>
+                              )}
+                              {isNeon && (
+                                <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-400 text-slate-950 font-bold">
+                                  NEON
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-[10px] text-slate-400">{row.sampleHardware}</div>
+                          </td>
+                          <td className="py-2 px-2 text-slate-300">{row.regWidth}</td>
+                          <td className="py-2 px-2 text-center text-slate-300">{row.elementsPerVector}</td>
+                          <td className="py-2 px-2 text-center font-semibold text-white">{row.instrsPerBlock}</td>
+                          <td className="py-2 px-2 text-right font-semibold text-white tabular-nums">
+                            {row.totalInstructions}
+                          </td>
+                          <td className="py-2 px-2 text-right font-semibold text-emerald-400 tabular-nums">
+                            {row.estimatedCycles}
+                          </td>
+                          <td className="py-2 px-2 text-right text-slate-300 tabular-nums">
+                            {row.cyclesPerElement}
+                          </td>
+                          <td className="py-2 px-2 text-right font-bold text-emerald-400 tabular-nums">
+                            {row.speedupVsScalar}×
+                          </td>
+                          <td className="py-2 px-2 text-center text-slate-400">
+                            {isExpanded ? (
+                              <ChevronUp className="w-3.5 h-3.5 inline text-cyan-400" />
+                            ) : (
+                              <ChevronDown className="w-3.5 h-3.5 inline text-slate-400" />
+                            )}
+                          </td>
+                        </tr>
+
+                        {/* Expandable Instruction & Execution Port Breakdown */}
+                        {isExpanded && (
+                          <tr className="bg-[#07090e] border-b border-slate-800">
+                            <td colSpan={9} className="p-3.5">
+                              <div className="space-y-2">
+                                <div className="flex items-center justify-between text-[11px] font-mono text-slate-400">
+                                  <span className="text-cyan-300 font-semibold">
+                                    {row.name} Microarchitectural Pipeline Specification
+                                  </span>
+                                  <span>Target ISA: {row.isaFamily}</span>
+                                </div>
+
+                                {/* Instruction table */}
+                                <div className="overflow-x-auto">
+                                  <table className="w-full text-[11px] font-mono text-left">
+                                    <thead>
+                                      <tr className="text-slate-400 border-b border-slate-800">
+                                        <th className="py-1 px-1.5">Instruction Mnemonic</th>
+                                        <th className="py-1 px-1">Count / Block</th>
+                                        <th className="py-1 px-1.5">Operation Purpose</th>
+                                        <th className="py-1 px-1 text-center">Latency</th>
+                                        <th className="py-1 px-1 text-center">Reciprocal Throughput</th>
+                                        <th className="py-1 px-1.5">CPU Execution Ports</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {ARCHITECTURE_LATENCY_MODELS.find(
+                                        (m) => m.archId === row.archId
+                                      )?.instructionDetails.map((inst, i) => (
+                                        <tr key={i} className="text-slate-300 border-b border-slate-900/60">
+                                          <td className="py-1 px-1.5 text-cyan-400 font-semibold">
+                                            {inst.mnemonic}
+                                          </td>
+                                          <td className="py-1 px-1">{inst.countPerBlock}</td>
+                                          <td className="py-1 px-1.5 text-slate-400">{inst.purpose}</td>
+                                          <td className="py-1 px-1 text-center">{inst.latencyCycles} cyc</td>
+                                          <td className="py-1 px-1 text-center">{inst.reciprocalThroughput}</td>
+                                          <td className="py-1 px-1.5 text-amber-300">{inst.executionPorts}</td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+
+                                <div className="text-[11px] text-slate-400 pt-1">
+                                  <strong>Architectural Insight:</strong>{' '}
+                                  {ARCHITECTURE_LATENCY_MODELS.find((m) => m.archId === row.archId)?.notes}
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* View 3: Visual Cycle Latency Bars */}
+        {latencyViewMode === 'chart' && (
+          <div className="p-4 rounded-lg bg-[#07090e] border border-slate-800 space-y-3">
+            <span className="text-xs font-semibold uppercase tracking-wider text-white block">
+              Execution Cycles for n={batchSize} (Lower is Faster)
             </span>
-          </div>
-          <div className="text-[11px] text-slate-400">
-            Pipeline Stalls: 0 across both architectures
-          </div>
-        </div>
 
-        {/* Full Comparative Architecture Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs font-mono text-left">
-            <thead>
-              <tr className="border-b border-slate-800 text-slate-400 bg-[#07090e]/60">
-                <th className="py-2 px-2.5">Architecture</th>
-                <th className="py-2 px-2">Register Width</th>
-                <th className="py-2 px-2 text-center">Elements / Vector</th>
-                <th className="py-2 px-2 text-center">Instrs / Block</th>
-                <th className="py-2 px-2 text-right">Total Instrs (n={batchSize})</th>
-                <th className="py-2 px-2 text-right">Est. Cycles</th>
-                <th className="py-2 px-2 text-right">Cycles / Element</th>
-                <th className="py-2 px-2 text-right text-emerald-400">Speedup vs. Scalar</th>
-                <th className="py-2 px-2 text-center">Inspection</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/60">
+            <div className="space-y-2.5 font-mono text-xs">
               {latencyRows.map((row) => {
-                const isSelected = selectedTarget === row.archId;
+                const maxCycles = 120; // scale for visualization (scalar clamped)
+                const clampedCycles = Math.min(row.estimatedCycles, maxCycles);
+                const widthPct = Math.max(3, (clampedCycles / maxCycles) * 100);
                 const isAvx512 = row.archId === 'avx512';
                 const isNeon = row.archId === 'neon';
-                const isExpanded = expandedArch === row.archId;
 
                 return (
-                  <React.Fragment key={row.archId}>
-                    <tr
-                      className={`transition-colors cursor-pointer ${
-                        isAvx512
-                          ? 'bg-cyan-500/10 hover:bg-cyan-500/15'
-                          : isNeon
-                          ? 'bg-amber-500/10 hover:bg-amber-500/15'
-                          : isSelected
-                          ? 'bg-[#151b2a]'
-                          : 'hover:bg-slate-800/20'
-                      }`}
-                      onClick={() => setExpandedArch(isExpanded ? null : row.archId)}
-                    >
-                      <td className="py-2 px-2.5 whitespace-nowrap">
-                        <div className="font-semibold text-white flex items-center gap-1.5">
-                          {row.name}
-                          {isAvx512 && (
-                            <span className="text-[9px] px-1.5 py-0.2 rounded bg-cyan-400 text-slate-950 font-bold">
-                              FASTEST
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-[10px] text-slate-400">{row.sampleHardware}</div>
-                      </td>
-                      <td className="py-2 px-2 text-slate-300">{row.regWidth}</td>
-                      <td className="py-2 px-2 text-center text-slate-300">{row.elementsPerVector}</td>
-                      <td className="py-2 px-2 text-center font-semibold text-white">{row.instrsPerBlock}</td>
-                      <td className="py-2 px-2 text-right font-semibold text-white tabular-nums">
-                        {row.totalInstructions}
-                      </td>
-                      <td className="py-2 px-2 text-right font-semibold text-emerald-400 tabular-nums">
-                        {row.estimatedCycles}
-                      </td>
-                      <td className="py-2 px-2 text-right text-slate-300 tabular-nums">
-                        {row.cyclesPerElement}
-                      </td>
-                      <td className="py-2 px-2 text-right font-bold text-emerald-400 tabular-nums">
-                        {row.speedupVsScalar}×
-                      </td>
-                      <td className="py-2 px-2 text-center text-slate-400">
-                        {isExpanded ? (
-                          <ChevronUp className="w-3.5 h-3.5 inline text-cyan-400" />
-                        ) : (
-                          <ChevronDown className="w-3.5 h-3.5 inline text-slate-400" />
-                        )}
-                      </td>
-                    </tr>
+                  <div key={row.archId} className="space-y-1">
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className={isAvx512 ? 'text-cyan-300 font-semibold' : isNeon ? 'text-amber-300 font-semibold' : 'text-slate-300'}>
+                        {row.name} ({row.totalInstructions} instrs)
+                      </span>
+                      <span className="text-white font-semibold">
+                        {row.estimatedCycles} cycles ({row.cyclesPerElement} cyc/el)
+                      </span>
+                    </div>
 
-                    {/* Expandable Instruction & Execution Port Breakdown */}
-                    {isExpanded && (
-                      <tr className="bg-[#07090e] border-b border-slate-800">
-                        <td colSpan={9} className="p-3.5">
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between text-[11px] font-mono text-slate-400">
-                              <span className="text-cyan-300 font-semibold">
-                                {row.name} Microarchitectural Pipeline Specification
-                              </span>
-                              <span>Target ISA: {row.isaFamily}</span>
-                            </div>
-
-                            {/* Instruction table */}
-                            <div className="overflow-x-auto">
-                              <table className="w-full text-[11px] font-mono text-left">
-                                <thead>
-                                  <tr className="text-slate-400 border-b border-slate-800">
-                                    <th className="py-1 px-1.5">Instruction Mnemonic</th>
-                                    <th className="py-1 px-1">Count / Block</th>
-                                    <th className="py-1 px-1.5">Operation Purpose</th>
-                                    <th className="py-1 px-1 text-center">Latency</th>
-                                    <th className="py-1 px-1 text-center">Reciprocal Throughput</th>
-                                    <th className="py-1 px-1.5">CPU Execution Ports</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {ARCHITECTURE_LATENCY_MODELS.find(
-                                    (m) => m.archId === row.archId
-                                  )?.instructionDetails.map((inst, i) => (
-                                    <tr key={i} className="text-slate-300 border-b border-slate-900/60">
-                                      <td className="py-1 px-1.5 text-cyan-400 font-semibold">
-                                        {inst.mnemonic}
-                                      </td>
-                                      <td className="py-1 px-1">{inst.countPerBlock}</td>
-                                      <td className="py-1 px-1.5 text-slate-400">{inst.purpose}</td>
-                                      <td className="py-1 px-1 text-center">{inst.latencyCycles} cyc</td>
-                                      <td className="py-1 px-1 text-center">{inst.reciprocalThroughput}</td>
-                                      <td className="py-1 px-1.5 text-amber-300">{inst.executionPorts}</td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
-
-                            <div className="text-[11px] text-slate-400 pt-1">
-                              <strong>Architectural Insight:</strong>{' '}
-                              {ARCHITECTURE_LATENCY_MODELS.find((m) => m.archId === row.archId)?.notes}
-                            </div>
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </React.Fragment>
+                    <div className="w-full bg-[#121624] h-4 rounded-full overflow-hidden flex items-center">
+                      <div
+                        className={`h-full rounded-full transition-all duration-300 ${
+                          isAvx512
+                            ? 'bg-cyan-400 shadow-sm shadow-cyan-400/50'
+                            : isNeon
+                            ? 'bg-amber-400'
+                            : row.archId === 'avx2'
+                            ? 'bg-blue-400'
+                            : row.archId === 'wasm'
+                            ? 'bg-purple-400'
+                            : 'bg-rose-500'
+                        }`}
+                        style={{ width: `${widthPct}%` }}
+                      />
+                    </div>
+                  </div>
                 );
               })}
-            </tbody>
-          </table>
-        </div>
+            </div>
+
+            <div className="text-[10px] font-mono text-slate-400 pt-2 border-t border-slate-800 flex justify-between">
+              <span>AVX-512 GFNI: 5.0 cycles (fastest)</span>
+              <span>ARM NEON: 35.6 cycles (7.1× latency ratio)</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* E-Graph Saturation Compression Progression */}

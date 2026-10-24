@@ -40,6 +40,7 @@ export interface ComparativeLatencyRow {
   ipcEstimated: number;
   speedupVsScalar: number;
   pipelineStalls: number;
+  breakdown: Array<{ mnemonic: string; totalCount: number; purpose: string }>;
 }
 
 export const ARCHITECTURE_LATENCY_MODELS: ArchitectureLatencyModel[] = [
@@ -56,7 +57,7 @@ export const ARCHITECTURE_LATENCY_MODELS: ArchitectureLatencyModel[] = [
       {
         mnemonic: 'vmovdqa64',
         countPerBlock: 1,
-        purpose: '512-bit aligned vector load',
+        purpose: '512-bit vector load',
         latencyCycles: 3,
         reciprocalThroughput: 0.5,
         executionPorts: 'Port 2, Port 3 (Load Unit)',
@@ -64,7 +65,7 @@ export const ARCHITECTURE_LATENCY_MODELS: ArchitectureLatencyModel[] = [
       {
         mnemonic: 'vgf2p8affineqb',
         countPerBlock: 1,
-        purpose: 'Native hardware 8x8 GF(2) affine transform',
+        purpose: 'Hardware 8x8 GF(2) affine transform',
         latencyCycles: 3,
         reciprocalThroughput: 0.5,
         executionPorts: 'Port 0, Port 1 (Vector ALU)',
@@ -138,7 +139,7 @@ export const ARCHITECTURE_LATENCY_MODELS: ArchitectureLatencyModel[] = [
       {
         mnemonic: 'vmovdqa',
         countPerBlock: 1,
-        purpose: '256-bit aligned vector load',
+        purpose: '256-bit vector load',
         latencyCycles: 3,
         reciprocalThroughput: 0.5,
         executionPorts: 'Port 2, Port 3',
@@ -146,7 +147,7 @@ export const ARCHITECTURE_LATENCY_MODELS: ArchitectureLatencyModel[] = [
       {
         mnemonic: 'vpand',
         countPerBlock: 2,
-        purpose: 'Nibble masking',
+        purpose: 'Nibble masking (0x0F & 0x07)',
         latencyCycles: 1,
         reciprocalThroughput: 0.33,
         executionPorts: 'Port 0, 1, 5',
@@ -250,7 +251,6 @@ export const ARCHITECTURE_LATENCY_MODELS: ArchitectureLatencyModel[] = [
  * Computes comparative execution metrics across architectures for a given batch size
  */
 export function computeComparativeLatency(batchSize = 256): ComparativeLatencyRow[] {
-  // Scalar baseline for speedup calculation
   const scalarBlocks = batchSize;
   const scalarInstructions = scalarBlocks * 14;
   const scalarCycles = batchSize * 3.5; // ~3.5 cycles per element
@@ -264,28 +264,27 @@ export function computeComparativeLatency(batchSize = 256): ComparativeLatencyRo
 
     switch (model.archId) {
       case 'avx512':
-        // 4 blocks for 256 points. Each block: load (0.5) + vgf2p8affineqb (0.5)
-        // With pipeline overlap: ~1.0 cycle per 64-element block + 1 cycle drain
+        // 4 blocks for 256 points. Load (0.5) + vgf2p8affineqb (0.5)
+        // Pipeline latency = 1.0 cycle per 64-element block + 1 cycle drain
         estimatedCycles = Math.max(3.0, vectorBlocks * 1.0 + 1.0);
         ipc = totalInstructions / estimatedCycles;
         break;
 
       case 'neon':
-        // 16 blocks for 256 points. Each block: 7 instructions.
-        // Dual-issue vector ALU + TBL pipeline: ~2.0 cycles per 16-element block + 2 cycles drain
+        // 16 blocks for 256 points. 7 instructions per block.
+        // Dual-issue vector ALU + TBL pipeline = ~2.1 cycles per 16-element block + 2 cycles drain
         estimatedCycles = vectorBlocks * 2.1 + 2.0;
         ipc = totalInstructions / estimatedCycles;
         break;
 
       case 'avx2':
-        // 8 blocks for 256 points. Each block: 7 instructions.
-        // Bottleneck on Port 5 for PSHUFB: 2 PSHUFB / block = 2.0 cycles + load/ALU = ~2.2 cycles/block
+        // 8 blocks for 256 points.
+        // Bottleneck on Port 5 for PSHUFB: ~2.2 cycles per block + 1.5 drain
         estimatedCycles = vectorBlocks * 2.2 + 1.5;
         ipc = totalInstructions / estimatedCycles;
         break;
 
       case 'wasm':
-        // JIT overhead slight penalty
         estimatedCycles = vectorBlocks * 2.6 + 2.5;
         ipc = totalInstructions / estimatedCycles;
         break;
@@ -298,6 +297,12 @@ export function computeComparativeLatency(batchSize = 256): ComparativeLatencyRo
 
     const cyclesPerElement = estimatedCycles / batchSize;
     const speedupVsScalar = scalarCycles / estimatedCycles;
+
+    const breakdown = model.instructionDetails.map((inst) => ({
+      mnemonic: inst.mnemonic,
+      totalCount: vectorBlocks * inst.countPerBlock,
+      purpose: inst.purpose,
+    }));
 
     return {
       archId: model.archId,
@@ -314,6 +319,7 @@ export function computeComparativeLatency(batchSize = 256): ComparativeLatencyRo
       ipcEstimated: Math.round(ipc * 100) / 100,
       speedupVsScalar: Math.round(speedupVsScalar * 10) / 10,
       pipelineStalls: 0,
+      breakdown,
     };
   });
 }

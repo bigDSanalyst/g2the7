@@ -53,6 +53,7 @@ export interface RLCandidate {
   zeroFixedPoints: boolean;
   diffDiffusion: number; // 0 - 100 higher is better
   localClustering: number; // 0 - 100 lower is better
+  algebraicDistance: number; // Distance in GL(7,2)
   rewardScore: number;
   isPareto: boolean;
   stageDiffusions: number[]; // diffusion rate across 7 butterfly stages

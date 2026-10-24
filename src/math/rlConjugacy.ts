@@ -9,7 +9,7 @@
  */
 
 import { BitMatrix7, RLCandidate } from '../types/crypto';
-import { computeInvariants, invertMat7, mulMat7 } from './algebra';
+import { computeInvariants, invertMat7, mulMat7, popcount7 } from './algebra';
 import { computeClusteringScore, computePermutation256, computeStageDiffusions } from './butterfly';
 
 /**
@@ -48,6 +48,19 @@ export function computeConjugate(L: BitMatrix7, P: BitMatrix7): BitMatrix7 | nul
 }
 
 /**
+ * Computes algebraic distance metric in GL(7,2):
+ * Bit-difference sum between matrix and reference (or identity mixing distance)
+ */
+export function computeAlgebraicDistance(M: BitMatrix7, baseMatrix?: BitMatrix7): number {
+  let dist = 0;
+  for (let r = 0; r < 7; r++) {
+    const ref = baseMatrix ? baseMatrix[r] : (1 << r);
+    dist += popcount7(M[r] ^ ref);
+  }
+  return dist;
+}
+
+/**
  * Evaluates candidate matrix under hard barrier constraints and secondary objectives
  */
 export function evaluateRLCandidate(
@@ -55,12 +68,14 @@ export function evaluateRLCandidate(
   gen: number,
   matrix: BitMatrix7,
   conjugatorP: BitMatrix7,
-  k = 0x01
+  k = 0x01,
+  baseMatrix?: BitMatrix7
 ): RLCandidate {
   const invariants = computeInvariants(matrix, k);
   const perm256 = computePermutation256(matrix, k);
   const stageDiffusions = computeStageDiffusions(matrix);
   const clustering = computeClusteringScore(perm256);
+  const algebraicDistance = computeAlgebraicDistance(matrix, baseMatrix);
 
   // Mean stage diffusion (stages 1..6)
   const avgDiff = stageDiffusions.slice(1).reduce((a, b) => a + b, 0) / 6;
@@ -72,9 +87,9 @@ export function evaluateRLCandidate(
   if (!passesInvariants) {
     rewardScore = 0; // Hard barrier penalty
   } else {
-    // Reward = w1 * Diffusion - w2 * Clustering + bonus for B(L)
-    rewardScore = Math.max(0, avgDiff * 1.2 - clustering * 0.45 + (invariants.branchNumber >= 4 ? 20 : 0));
-    rewardScore = Math.round(rewardScore * 10) / 10;
+    // Reward combines diffusion, algebraic distance mixing, and clustering penalty
+    const rawReward = avgDiff * 0.95 + algebraicDistance * 1.1 - clustering * 0.4 + (invariants.branchNumber >= 4 ? 15 : 0);
+    rewardScore = Math.max(0, Math.round(rawReward * 10) / 10);
   }
 
   return {
@@ -86,6 +101,7 @@ export function evaluateRLCandidate(
     zeroFixedPoints: invariants.hasZeroFixedPoints,
     diffDiffusion: Math.round(avgDiff * 10) / 10,
     localClustering: clustering,
+    algebraicDistance,
     rewardScore,
     isPareto: false, // will be computed across cohort
     stageDiffusions,
@@ -127,6 +143,7 @@ export const INITIAL_RL_CANDIDATES: RLCandidate[] = [
     zeroFixedPoints: true,
     diffDiffusion: 74.2,
     localClustering: 41.5,
+    algebraicDistance: 14,
     rewardScore: 78.4,
     isPareto: true,
     stageDiffusions: [14, 32, 54, 76, 88, 98, 100],
@@ -140,6 +157,7 @@ export const INITIAL_RL_CANDIDATES: RLCandidate[] = [
     zeroFixedPoints: true,
     diffDiffusion: 86.8,
     localClustering: 36.2,
+    algebraicDistance: 21,
     rewardScore: 92.1,
     isPareto: true,
     stageDiffusions: [14, 38, 68, 88, 96, 100, 100],
@@ -153,6 +171,7 @@ export const INITIAL_RL_CANDIDATES: RLCandidate[] = [
     zeroFixedPoints: true,
     diffDiffusion: 79.5,
     localClustering: 33.1,
+    algebraicDistance: 17,
     rewardScore: 84.6,
     isPareto: true,
     stageDiffusions: [14, 35, 59, 81, 92, 100, 100],
@@ -166,6 +185,7 @@ export const INITIAL_RL_CANDIDATES: RLCandidate[] = [
     zeroFixedPoints: true,
     diffDiffusion: 89.4,
     localClustering: 38.0,
+    algebraicDistance: 24,
     rewardScore: 94.3,
     isPareto: true,
     stageDiffusions: [14, 42, 72, 92, 98, 100, 100],
@@ -179,6 +199,7 @@ export const INITIAL_RL_CANDIDATES: RLCandidate[] = [
     zeroFixedPoints: true,
     diffDiffusion: 82.0,
     localClustering: 31.8,
+    algebraicDistance: 19,
     rewardScore: 88.2,
     isPareto: true,
     stageDiffusions: [14, 36, 64, 84, 94, 100, 100],
@@ -192,6 +213,7 @@ export const INITIAL_RL_CANDIDATES: RLCandidate[] = [
     zeroFixedPoints: false,
     diffDiffusion: 14.3,
     localClustering: 5.2,
+    algebraicDistance: 0,
     rewardScore: 0.0, // HARD BARRIER REJECTED
     isPareto: false,
     stageDiffusions: [14, 14, 14, 14, 14, 14, 14],
