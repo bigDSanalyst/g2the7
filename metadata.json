@@ -1,6 +1,6 @@
 {
-  "name": "",
-  "description": "",
+  "name": "AGL(7,2) Cryptographic Workbench",
+  "description": "Mathematical research platform for AGL(7,2) structural layers, Lean 4 autoformalization, RL finite group conjugacy exploration, and multi-target SIMD code synthesis.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
