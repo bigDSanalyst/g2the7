@@ -195,9 +195,10 @@ $$
 The RL agent optimizes secondary microarchitectural properties (e.g., minimizing memory stride divergence across vector lanes) while enforcing strict constraint barriers:
 
 $$
-R(L') = \begin{cases}
-0.0 & \text{if } B(L') < 4 \lor \exists b \in \mathbb{F}_2^7, (L' \cdot b) \oplus k = b \\
-w_1 \cdot d_{\text{alg}}(L', I) + w_2 \cdot D_{\text{diff}}(L') - w_3 \cdot C_{\text{cluster}}(L') & \text{otherwise}
+R(L') = 
+\begin{cases} 
+0.0 & \text{if } B(L') < 4 \lor \exists b \in \mathbb{F}_2^7, (L' \cdot b) \oplus k = b \\ 
+w_1 d_{\text{alg}}(L', I) + w_2 D_{\text{diff}}(L') - w_3 C_{\text{cluster}}(L') & \text{otherwise} 
 \end{cases}
 $$
 
