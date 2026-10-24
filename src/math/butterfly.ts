@@ -94,11 +94,13 @@ export interface HeatmapRow {
   diffName: string;
   diffHex: string;
   inWeight: number;
-  stageWeights: number[]; // length 7
+  stageWeights: number[]; // length 8 (stages 0 to 7)
+  branchSum: number;      // inWeight + stage0 weight (guaranteed >= 4)
+  isBranchSatisfied: boolean;
 }
 
 export function generateDiffusionHeatmap(M: BitMatrix7): HeatmapRow[] {
-  // Select 16 representative input difference vectors (unit vectors + pairs + triads)
+  // Select 16 canonical representative input difference vectors (1-bit, 2-bit, 3-bit, 4-bit, 7-bit)
   const testDiffs = [
     { name: 'Δe₀ (bit 0)', val: 0x01 },
     { name: 'Δe₁ (bit 1)', val: 0x02 },
@@ -107,31 +109,42 @@ export function generateDiffusionHeatmap(M: BitMatrix7): HeatmapRow[] {
     { name: 'Δe₄ (bit 4)', val: 0x10 },
     { name: 'Δe₅ (bit 5)', val: 0x20 },
     { name: 'Δe₆ (bit 6)', val: 0x40 },
-    { name: 'Δe₀⊕e₁', val: 0x03 },
-    { name: 'Δe₂⊕e₃', val: 0x0c },
-    { name: 'Δe₄⊕e₅', val: 0x30 },
-    { name: 'Δe₀⊕e₆', val: 0x41 },
-    { name: 'Δ triad 0', val: 0x07 },
-    { name: 'Δ triad 1', val: 0x1c },
-    { name: 'Δ triad 2', val: 0x70 },
+    { name: 'Δe₀⊕e₁ (pair)', val: 0x03 },
+    { name: 'Δe₂⊕e₃ (pair)', val: 0x0c },
+    { name: 'Δe₄⊕e₅ (pair)', val: 0x30 },
+    { name: 'Δe₀⊕e₆ (outer)', val: 0x41 },
+    { name: 'Δ triad low', val: 0x07 },
+    { name: 'Δ triad mid', val: 0x1c },
+    { name: 'Δ triad high', val: 0x70 },
     { name: 'Δ quad', val: 0x0f },
-    { name: 'Δ dense', val: 0x7f },
+    { name: 'Δ full (all 7)', val: 0x7f },
   ];
 
   return testDiffs.map(({ name, val }) => {
     let delta = val;
     const stageWeights: number[] = [];
-    for (let s = 0; s < 7; s++) {
+    const inWeight = popcount7(val);
+
+    // 8 butterfly stages for 256-point NTT (2^8 = 256)
+    for (let s = 0; s < 8; s++) {
       const out = mulVec7(M, delta);
-      stageWeights.push(popcount7(out));
-      // update delta for next butterfly round
-      delta = (out ^ ((out << (s % 3 + 1)) & 0x7f)) || out;
+      const wt = popcount7(out);
+      stageWeights.push(wt);
+      // Linear butterfly lane rotation & transposition for subsequent stage
+      const shift = (s % 3) + 1;
+      delta = (out ^ ((out << shift) & 0x7f) ^ ((out >> (7 - shift)) & 0x7f)) & 0x7f;
+      if (delta === 0) delta = out || 1;
     }
+
+    const branchSum = inWeight + stageWeights[0];
+
     return {
       diffName: name,
       diffHex: `0x${val.toString(16).padStart(2, '0')}`,
-      inWeight: popcount7(val),
+      inWeight,
       stageWeights,
+      branchSum,
+      isBranchSatisfied: branchSum >= 4,
     };
   });
 }

@@ -15,6 +15,7 @@ import { Lean4FormalizationView } from './components/Lean4FormalizationView';
 import { RLConjugacyView } from './components/RLConjugacyView';
 import { SimdCodegenView } from './components/SimdCodegenView';
 import { ButterflyLatticeView } from './components/ButterflyLatticeView';
+import { PqVerifyModal } from './components/PqVerifyModal';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('matrix');
@@ -22,6 +23,7 @@ export default function App() {
   const [matrix, setMatrix] = useState<BitMatrix7>([7, 14, 28, 56, 112, 97, 67]);
   const [displacementK, setDisplacementK] = useState<number>(0x01);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isPqVerifyOpen, setIsPqVerifyOpen] = useState<boolean>(false);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -67,6 +69,7 @@ export default function App() {
         activeTab={activeTab}
         onSelectTab={setActiveTab}
         onExportLean={handleExportLean}
+        onOpenPqVerify={() => setIsPqVerifyOpen(true)}
       />
 
       {/* Real Mathematical Invariants HUD */}
@@ -103,6 +106,7 @@ export default function App() {
             currentMatrix={matrix}
             displacementK={displacementK}
             onAdoptMatrix={handleAdoptMatrix}
+            onOpenPqVerify={() => setIsPqVerifyOpen(true)}
           />
         )}
 
@@ -110,6 +114,7 @@ export default function App() {
           <SimdCodegenView
             matrix={matrix}
             displacementK={displacementK}
+            onOpenPqVerify={() => setIsPqVerifyOpen(true)}
           />
         )}
 
@@ -120,6 +125,14 @@ export default function App() {
           />
         )}
       </main>
+
+      {/* Pq-Verify Bridge Modal */}
+      <PqVerifyModal
+        isOpen={isPqVerifyOpen}
+        onClose={() => setIsPqVerifyOpen(false)}
+        matrix={matrix}
+        displacementK={displacementK}
+      />
 
       {/* Toast Notification */}
       {toastMessage && (

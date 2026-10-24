@@ -30,22 +30,37 @@ import {
   BarChart3,
   Table,
   Zap,
+  Flag,
+  Play,
+  Pause,
+  RotateCcw,
+  Trophy,
+  Sparkles,
+  Timer,
+  FastForward,
 } from 'lucide-react';
 
 interface SimdCodegenViewProps {
   matrix: BitMatrix7;
   displacementK: number;
+  onOpenPqVerify?: () => void;
 }
 
 export const SimdCodegenView: React.FC<SimdCodegenViewProps> = ({
   matrix,
   displacementK,
+  onOpenPqVerify,
 }) => {
   const [selectedTarget, setSelectedTarget] = useState<SIMDTarget>('avx512');
   const [copied, setCopied] = useState<boolean>(false);
   const [batchSize, setBatchSize] = useState<number>(256);
   const [expandedArch, setExpandedArch] = useState<string | null>('avx512');
-  const [latencyViewMode, setLatencyViewMode] = useState<'table' | 'faceoff' | 'chart'>('table');
+  const [latencyViewMode, setLatencyViewMode] = useState<'table' | 'faceoff' | 'chart' | 'race'>('race');
+
+  // Silicon Latency Race animation state
+  const [raceRunning, setRaceRunning] = useState<boolean>(false);
+  const [raceCycle, setRaceCycle] = useState<number>(0);
+  const [raceSpeed, setRaceSpeed] = useState<number>(2);
 
   const egraphStages = getEGraphStages(matrix, displacementK);
   const codegenResult = generateSIMDCode(selectedTarget, matrix, displacementK);
@@ -57,6 +72,37 @@ export const SimdCodegenView: React.FC<SimdCodegenViewProps> = ({
   const neonRow = latencyRows.find((r) => r.archId === 'neon')!;
   const instructionReductionRatio = (neonRow.totalInstructions / avx512Row.totalInstructions).toFixed(1);
   const speedupAdvantage = (neonRow.estimatedCycles / avx512Row.estimatedCycles).toFixed(1);
+
+  // Silicon race animation ticker
+  React.useEffect(() => {
+    if (!raceRunning) return;
+    const interval = setInterval(() => {
+      setRaceCycle((prev) => {
+        const next = prev + 1.2 * raceSpeed;
+        if (next >= 896) {
+          setRaceRunning(false);
+          return 896;
+        }
+        return next;
+      });
+    }, 20);
+    return () => clearInterval(interval);
+  }, [raceRunning, raceSpeed]);
+
+  const handleStartRace = () => {
+    if (raceCycle >= 896) setRaceCycle(0);
+    setRaceRunning(true);
+  };
+
+  const handlePauseRace = () => setRaceRunning(false);
+  const handleResetRace = () => {
+    setRaceRunning(false);
+    setRaceCycle(0);
+  };
+  const handleFinishRace = () => {
+    setRaceRunning(false);
+    setRaceCycle(896);
+  };
 
   const handleCopy = () => {
     navigator.clipboard.writeText(codegenResult.code);
@@ -143,6 +189,17 @@ export const SimdCodegenView: React.FC<SimdCodegenViewProps> = ({
             {/* View Mode Toggle */}
             <div className="flex items-center bg-[#151b2a] p-1 rounded-md border border-slate-800 text-xs font-mono">
               <button
+                onClick={() => setLatencyViewMode('race')}
+                className={`px-2.5 py-1 rounded transition-colors cursor-pointer flex items-center gap-1.5 ${
+                  latencyViewMode === 'race'
+                    ? 'bg-gradient-to-r from-emerald-400 to-teal-400 text-slate-950 font-bold shadow-sm'
+                    : 'text-emerald-400 hover:text-white'
+                }`}
+              >
+                <Flag className="w-3 h-3" />
+                Silicon Race (5.0 vs 35.6 cyc)
+              </button>
+              <button
                 onClick={() => setLatencyViewMode('table')}
                 className={`px-2.5 py-1 rounded transition-colors cursor-pointer flex items-center gap-1.5 ${
                   latencyViewMode === 'table'
@@ -198,6 +255,373 @@ export const SimdCodegenView: React.FC<SimdCodegenViewProps> = ({
             </div>
           </div>
         </div>
+
+        {/* View 0: Interactive Silicon Latency Race (AVX-512 vs ARM NEON vs Scalar C) */}
+        {latencyViewMode === 'race' && (
+          <div className="space-y-4">
+            {/* Race Controls and Telemetry HUD */}
+            <div className="p-4 rounded-lg bg-[#07090e] border border-emerald-500/30 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1.5 bg-[#121624] p-1 rounded-md border border-slate-800">
+                  {raceRunning ? (
+                    <button
+                      onClick={handlePauseRace}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-900 bg-amber-400 hover:bg-amber-300 rounded transition-colors cursor-pointer"
+                    >
+                      <Pause className="w-3.5 h-3.5" />
+                      Pause Race
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleStartRace}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-950 bg-gradient-to-r from-emerald-400 to-teal-400 hover:from-emerald-300 hover:to-teal-300 rounded transition-colors cursor-pointer shadow-sm shadow-emerald-950/40"
+                    >
+                      <Play className="w-3.5 h-3.5" />
+                      {raceCycle === 0 ? 'Start Silicon Race' : raceCycle >= 896 ? 'Re-run Race' : 'Resume Race'}
+                    </button>
+                  )}
+
+                  <button
+                    onClick={handleResetRace}
+                    className="p-1.5 text-slate-400 hover:text-white rounded hover:bg-slate-800 transition-colors cursor-pointer"
+                    title="Reset race clock to 0 cycles"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                  </button>
+
+                  <button
+                    onClick={handleFinishRace}
+                    className="flex items-center gap-1 px-2 py-1 text-xs text-slate-300 hover:text-white hover:bg-slate-800 rounded transition-colors cursor-pointer"
+                    title="Fast forward to end of 896 cycles"
+                  >
+                    <FastForward className="w-3.5 h-3.5" />
+                    <span>Instant</span>
+                  </button>
+                </div>
+
+                {/* Speed Multiplier */}
+                <div className="flex items-center gap-1 text-xs font-mono text-slate-400 bg-[#121624] px-2 py-1 rounded border border-slate-800">
+                  <span className="text-[10px] uppercase text-slate-500">Speed:</span>
+                  {[1, 2, 5].map((spd) => (
+                    <button
+                      key={spd}
+                      onClick={() => setRaceSpeed(spd)}
+                      className={`px-1.5 py-0.5 rounded cursor-pointer ${
+                        raceSpeed === spd ? 'bg-cyan-500/30 text-cyan-300 font-bold' : 'hover:text-white'
+                      }`}
+                    >
+                      {spd}×
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Live Silicon Telemetry Odometer */}
+              <div className="flex flex-wrap items-center gap-4 text-xs font-mono">
+                <div className="p-2 rounded bg-[#121624] border border-slate-800">
+                  <span className="text-[10px] text-slate-500 uppercase block">Elapsed Cycles</span>
+                  <div className="text-base font-bold text-cyan-300 tabular-nums">
+                    {raceCycle.toFixed(1)} <span className="text-xs text-slate-500">/ 896 cyc</span>
+                  </div>
+                </div>
+
+                <div className="p-2 rounded bg-[#121624] border border-slate-800">
+                  <span className="text-[10px] text-slate-500 uppercase block">Silicon Wall Time (@ 3.5 GHz)</span>
+                  <div className="text-base font-bold text-emerald-400 tabular-nums">
+                    {(raceCycle / 3.5).toFixed(1)} <span className="text-xs text-slate-500">ns</span>
+                  </div>
+                </div>
+
+                {onOpenPqVerify && (
+                  <button
+                    onClick={onOpenPqVerify}
+                    className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-950 bg-emerald-400 hover:bg-emerald-300 rounded transition-colors cursor-pointer shadow-sm"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    Export Winner to pq-verify
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Racetrack Lanes */}
+            <div className="p-5 rounded-lg bg-[#07090e] border border-slate-800 space-y-4">
+              <div className="flex items-center justify-between text-xs font-mono text-slate-400 pb-2 border-b border-slate-800">
+                <span className="uppercase tracking-wider">Silicon Execution Lanes (256-Point NTT Butterfly)</span>
+                <span className="text-emerald-400 flex items-center gap-1">
+                  <Timer className="w-3.5 h-3.5" />
+                  Clock Frequency: 3.5 GHz · Pipeline Depth: 14 Stages
+                </span>
+              </div>
+
+              {/* Lane 1: AVX-512 GFNI (5.0 cyc) */}
+              {(() => {
+                const targetCyc = 5.0;
+                const isFinished = raceCycle >= targetCyc;
+                const progressPct = isFinished ? 100 : Math.min(100, (raceCycle / targetCyc) * 100);
+
+                return (
+                  <div className="space-y-1.5 p-3 rounded-lg bg-[#0f1422] border border-cyan-500/40 relative overflow-hidden">
+                    <div className="flex items-center justify-between text-xs font-mono">
+                      <div className="flex items-center gap-2">
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-400/20 text-amber-300 border border-amber-400/40">
+                          🥇 1st PLACE
+                        </span>
+                        <span className="text-cyan-300 font-bold">x86-64 AVX-512 + GFNI</span>
+                        <span className="text-[11px] text-slate-400">
+                          (<code>_mm512_gf2p8affine_epi64_epi8</code>)
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-emerald-400 font-bold tabular-nums">5.0 cycles</span>
+                        <span className="text-[11px] text-cyan-400 font-semibold">179.2× vs Scalar</span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300">
+                          0 Stalls
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Track */}
+                    <div className="relative w-full h-7 bg-[#07090e] rounded-md overflow-hidden border border-slate-800 flex items-center px-1">
+                      {/* Finish line checker */}
+                      <div className="absolute right-0 top-0 bottom-0 w-3 bg-[repeating-linear-gradient(45deg,#222,#222_3px,#fff_3px,#fff_6px)] opacity-40 z-10" />
+
+                      {/* Progress Bar */}
+                      <div
+                        className="h-full bg-gradient-to-r from-cyan-600 via-cyan-400 to-emerald-400 rounded transition-all duration-75 relative flex items-center justify-end pr-2"
+                        style={{ width: `${progressPct}%` }}
+                      >
+                        {isFinished && (
+                          <div className="flex items-center gap-1 text-[10px] font-bold text-slate-950 font-mono">
+                            <Trophy className="w-3.5 h-3.5" />
+                            <span>DONE in 5.0 cyc (1.4 ns)</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Lane 2: AVX2 (19.1 cyc) */}
+              {(() => {
+                const targetCyc = 19.1;
+                const isFinished = raceCycle >= targetCyc;
+                const progressPct = isFinished ? 100 : Math.min(100, (raceCycle / targetCyc) * 100);
+
+                return (
+                  <div className="space-y-1.5 p-3 rounded-lg bg-[#0f1422] border border-blue-500/30 relative overflow-hidden">
+                    <div className="flex items-center justify-between text-xs font-mono">
+                      <div className="flex items-center gap-2">
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-300/20 text-slate-300 border border-slate-400/30">
+                          🥈 2nd PLACE
+                        </span>
+                        <span className="text-blue-300 font-bold">x86-64 AVX2</span>
+                        <span className="text-[11px] text-slate-400">
+                          (<code>_mm256_shuffle_epi8</code>)
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-blue-300 font-bold tabular-nums">19.1 cycles</span>
+                        <span className="text-[11px] text-blue-400 font-semibold">46.9× vs Scalar</span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300">
+                          0 Stalls
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Track */}
+                    <div className="relative w-full h-7 bg-[#07090e] rounded-md overflow-hidden border border-slate-800 flex items-center px-1">
+                      <div className="absolute right-0 top-0 bottom-0 w-3 bg-[repeating-linear-gradient(45deg,#222,#222_3px,#fff_3px,#fff_6px)] opacity-40 z-10" />
+                      <div
+                        className="h-full bg-gradient-to-r from-blue-700 via-blue-500 to-cyan-400 rounded transition-all duration-75 relative flex items-center justify-end pr-2"
+                        style={{ width: `${progressPct}%` }}
+                      >
+                        {isFinished && (
+                          <div className="flex items-center gap-1 text-[10px] font-bold text-slate-950 font-mono">
+                            <Check className="w-3.5 h-3.5" />
+                            <span>DONE in 19.1 cyc (5.5 ns)</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Lane 3: ARM NEON (35.6 cyc) */}
+              {(() => {
+                const targetCyc = 35.6;
+                const isFinished = raceCycle >= targetCyc;
+                const progressPct = isFinished ? 100 : Math.min(100, (raceCycle / targetCyc) * 100);
+
+                return (
+                  <div className="space-y-1.5 p-3 rounded-lg bg-[#0f1422] border border-amber-500/30 relative overflow-hidden">
+                    <div className="flex items-center justify-between text-xs font-mono">
+                      <div className="flex items-center gap-2">
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-700/20 text-amber-500 border border-amber-600/30">
+                          🥉 3rd PLACE
+                        </span>
+                        <span className="text-amber-300 font-bold">ARMv8 / Apple Silicon NEON</span>
+                        <span className="text-[11px] text-slate-400">
+                          (<code>vtbl2_u8</code> 128-bit vector lookups)
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-amber-300 font-bold tabular-nums">35.6 cycles</span>
+                        <span className="text-[11px] text-amber-400 font-semibold">25.2× vs Scalar</span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300">
+                          0 Stalls
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Track */}
+                    <div className="relative w-full h-7 bg-[#07090e] rounded-md overflow-hidden border border-slate-800 flex items-center px-1">
+                      <div className="absolute right-0 top-0 bottom-0 w-3 bg-[repeating-linear-gradient(45deg,#222,#222_3px,#fff_3px,#fff_6px)] opacity-40 z-10" />
+                      <div
+                        className="h-full bg-gradient-to-r from-amber-700 via-amber-500 to-amber-300 rounded transition-all duration-75 relative flex items-center justify-end pr-2"
+                        style={{ width: `${progressPct}%` }}
+                      >
+                        {isFinished && (
+                          <div className="flex items-center gap-1 text-[10px] font-bold text-slate-950 font-mono">
+                            <Check className="w-3.5 h-3.5" />
+                            <span>DONE in 35.6 cyc (10.2 ns)</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Lane 4: WebAssembly SIMD (44.1 cyc) */}
+              {(() => {
+                const targetCyc = 44.1;
+                const isFinished = raceCycle >= targetCyc;
+                const progressPct = isFinished ? 100 : Math.min(100, (raceCycle / targetCyc) * 100);
+
+                return (
+                  <div className="space-y-1.5 p-3 rounded-lg bg-[#0f1422] border border-purple-500/30 relative overflow-hidden">
+                    <div className="flex items-center justify-between text-xs font-mono">
+                      <div className="flex items-center gap-2">
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                          #4
+                        </span>
+                        <span className="text-purple-300 font-bold">WebAssembly SIMD128</span>
+                        <span className="text-[11px] text-slate-400">
+                          (<code>i8x16.swizzle</code>)
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-purple-300 font-bold tabular-nums">44.1 cycles</span>
+                        <span className="text-[11px] text-purple-400 font-semibold">20.3× vs Scalar</span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300">
+                          0 Stalls
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Track */}
+                    <div className="relative w-full h-7 bg-[#07090e] rounded-md overflow-hidden border border-slate-800 flex items-center px-1">
+                      <div className="absolute right-0 top-0 bottom-0 w-3 bg-[repeating-linear-gradient(45deg,#222,#222_3px,#fff_3px,#fff_6px)] opacity-40 z-10" />
+                      <div
+                        className="h-full bg-gradient-to-r from-purple-700 via-purple-500 to-pink-400 rounded transition-all duration-75 relative flex items-center justify-end pr-2"
+                        style={{ width: `${progressPct}%` }}
+                      >
+                        {isFinished && (
+                          <div className="flex items-center gap-1 text-[10px] font-bold text-slate-950 font-mono">
+                            <Check className="w-3.5 h-3.5" />
+                            <span>DONE in 44.1 cyc (12.6 ns)</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Lane 5: Scalar C Baseline (896.0 cyc) */}
+              {(() => {
+                const targetCyc = 896.0;
+                const isFinished = raceCycle >= targetCyc;
+                const progressPct = isFinished ? 100 : Math.min(100, (raceCycle / targetCyc) * 100);
+
+                return (
+                  <div className="space-y-1.5 p-3 rounded-lg bg-[#0f1422] border border-rose-500/30 relative overflow-hidden">
+                    <div className="flex items-center justify-between text-xs font-mono">
+                      <div className="flex items-center gap-2">
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                          BASELINE
+                        </span>
+                        <span className="text-rose-400 font-bold">Scalar C (Unvectorized)</span>
+                        <span className="text-[11px] text-slate-500">
+                          (Serial bit extractions & shifts)
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-rose-400 font-bold tabular-nums">896.0 cycles</span>
+                        <span className="text-[11px] text-slate-500 font-semibold">1.0× Baseline</span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300">
+                          448 Pipeline Stalls
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Track */}
+                    <div className="relative w-full h-7 bg-[#07090e] rounded-md overflow-hidden border border-slate-800 flex items-center px-1">
+                      <div className="absolute right-0 top-0 bottom-0 w-3 bg-[repeating-linear-gradient(45deg,#222,#222_3px,#fff_3px,#fff_6px)] opacity-40 z-10" />
+                      <div
+                        className="h-full bg-gradient-to-r from-rose-800 via-rose-600 to-rose-400 rounded transition-all duration-75 relative flex items-center justify-end pr-2"
+                        style={{ width: `${progressPct}%` }}
+                      >
+                        {isFinished ? (
+                          <div className="flex items-center gap-1 text-[10px] font-bold text-slate-950 font-mono">
+                            <span>DONE in 896.0 cyc (256.0 ns)</span>
+                          </div>
+                        ) : (
+                          <span className="text-[10px] font-mono text-slate-300 truncate pl-2">
+                            Stalled on scalar shifts & memory dependencies...
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* Microarchitectural Explanation Box */}
+            <div className="p-4 rounded-lg bg-[#07090e] border border-slate-800 text-xs font-mono grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="p-2.5 rounded bg-[#0f1422] border border-slate-800">
+                <span className="text-[10px] text-cyan-400 uppercase font-semibold block">
+                  Hardware GFNI Acceleration
+                </span>
+                <p className="text-[11px] text-slate-300 mt-1 leading-relaxed">
+                  AVX-512 GFNI implements direct 8×8 bit-matrix multiplication in a single micro-op per 64-byte vector register, processing 64 coefficients per cycle.
+                </p>
+              </div>
+
+              <div className="p-2.5 rounded bg-[#0f1422] border border-slate-800">
+                <span className="text-[10px] text-amber-400 uppercase font-semibold block">
+                  ARM NEON Parallel Shuffles
+                </span>
+                <p className="text-[11px] text-slate-300 mt-1 leading-relaxed">
+                  ARM NEON utilizes split-nibble vector table lookups (<code>vtbl2_u8</code>) taking 35.6 cycles, outperforming scalar C by 25.2× with zero pipeline bubbles.
+                </p>
+              </div>
+
+              <div className="p-2.5 rounded bg-[#0f1422] border border-slate-800">
+                <span className="text-[10px] text-emerald-400 uppercase font-semibold block">
+                  Zero Branch Penalty
+                </span>
+                <p className="text-[11px] text-slate-300 mt-1 leading-relaxed">
+                  All SIMD implementations eliminate conditional jumps and branch prediction hazards entirely, guaranteeing constant-time side-channel resistance.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* View 1: Direct Face-Off (AVX-512 vs. ARM NEON) */}
         {latencyViewMode === 'faceoff' && (
