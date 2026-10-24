@@ -18,8 +18,8 @@ import { computeClusteringScore, computePermutation256, computeStageDiffusions }
 export function generateRandomInvertibleP(seed: number): BitMatrix7 {
   let s = seed;
   const rnd = () => {
-    s = (s * 1664525 + 1013904223) % 4294967296;
-    return s >>> 0;
+    s = (Math.imul(1664525, s) + 1013904223) >>> 0;
+    return s;
   };
 
   for (let trial = 0; trial < 1000; trial++) {
@@ -88,7 +88,7 @@ export function evaluateRLCandidate(
     rewardScore = 0; // Hard barrier penalty
   } else {
     // Reward combines diffusion, algebraic distance mixing, and clustering penalty
-    const rawReward = avgDiff * 0.95 + algebraicDistance * 1.1 - clustering * 0.4 + (invariants.branchNumber >= 4 ? 15 : 0);
+    const rawReward = avgDiff * 0.95 + algebraicDistance * 1.1 - clustering * 0.4 + 15;
     rewardScore = Math.max(0, Math.round(rawReward * 10) / 10);
   }
 
