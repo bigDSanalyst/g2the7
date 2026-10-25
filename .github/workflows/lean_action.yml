@@ -1,0 +1,19 @@
+name: Lean 4 CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Build Lean project
+        uses: leanprover/lean-action@v1
+        with:
+          auto-config: true
+          use-github-cache: true

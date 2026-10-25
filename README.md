@@ -1,13 +1,12 @@
 # AGL(7,2) Cryptographic Workbench & Autoformalization Platform
 
-[![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)](#)
 [![Lean 4](https://img.shields.io/badge/formalization-Lean%204.7.0%20%7C%20Mathlib4-blue.svg)](#)
 [![SIMD Targets](https://img.shields.io/badge/SIMD-AVX--512%20GFNI%20%7C%20ARM%20NEON%20%7C%20AVX2-orange.svg)](#)
 [![Finite Field](https://img.shields.io/badge/algebra-F₂⁷%20%E2%8B%8A%20GL(7%2C2)-purple.svg)](#)
 [![Verifier Bridge](https://img.shields.io/badge/bridge-pq--verify-emerald.svg)](https://github.com/bigDSanalyst/pq-verify)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](#)
 
-A precision mathematical research workbench and code generation platform for verifying, optimizing, and hardware-synthesizing non-heuristic $\text{AGL}(7,2)$ structural layers. This high-diffusion matrix is designed to be embedded into post-quantum cryptographic architectures (such as bitsliced NTT implementations, polynomial mixing layers, or block cipher diffusion steps) to provide mathematically proven branch number bounds.
+A precision mathematical research workbench and code generation platform for verifying, optimizing, and hardware-synthesizing non-heuristic $\text{AGL}(7,2)$ structural layers. This high-diffusion matrix is designed to be embedded into post-quantum cryptographic architectures (such as cryptographic state diffusion layers, polynomial mixing layers, or block cipher diffusion steps) to provide mathematically proven branch number bounds.
 
 ---
 
@@ -248,7 +247,7 @@ Every batch export from this workbench produces:
 2. **The C Header & CBMC Harness**: Loop invariants and bounds ready for formal verification.
 3. **The AVX-512/ARM NEON Assembly**: Lowered via E-graphs.
 
-These artifacts are designed to be piped directly into **`pq-verify`**, the open-source verification engine. `pq-verify` uses CBMC with Kissat (the engine behind the 2026 SAT Competition main-track winner) to prove the generated C code is undefined-behavior-free. It uses Valgrind to check for secret-dependent branches and memory access in the compiled binary.
+These artifacts are designed to be piped directly into **`pq-verify`**, the open-source verification engine. This workbench generates C headers and CBMC harnesses. The exported code can be verified directly with CBMC, or passed to `pq-verify`'s `--audit-source` pipeline.
 
 $$\text{Generator (AGL72)} \longrightarrow \text{Verifier (pq-verify)} \longrightarrow \text{Silicon}$$
 
@@ -258,7 +257,7 @@ $$\text{Generator (AGL72)} \longrightarrow \text{Verifier (pq-verify)} \longrigh
 
 ```bash
 # Verify bit-level invertibility, branch number B(L)>=4, and zero fixed points
-cbmc agl72_harness.c --unwind 128 --bounds-check --pointer-check
+cbmc agl72_harness.c --unwind 128 --bounds-check --pointer-check --unwinding-assertions
 ```
 
 ---
@@ -271,7 +270,7 @@ cbmc agl72_harness.c --unwind 128 --bounds-check --pointer-check
 
 ## 🔒 Cryptographic Priority & Provenance
 
-Artifacts, generated constants, and formal verification proofs can be anchored to provide tamper-evident proof of when the artifact existed, ensuring cryptographic priority and reproducible provenance.
+Artifacts, generated constants, and formal verification proofs can be anchored to provide tamper-evident proof of when the artifact existed, providing reproducible provenance and reproducible provenance.
 
 ---
 
@@ -320,7 +319,7 @@ Artifacts, generated constants, and formal verification proofs can be anchored t
 
 1. **Clone the repository**:
    ```bash
-   git clone https://github.com/your-org/agl72-cryptographic-workbench.git
+   git clone https://github.com/bigDSanalyst/g2the7.git
    cd agl72-cryptographic-workbench
    ```
 
