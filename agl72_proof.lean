@@ -27,12 +27,9 @@ theorem L_invertible : IsUnit (L.det) := by decide
 
 theorem L_branch_number_ge_four :
     ∀ b : Dim7 → F2, b ≠ 0 → hammingWeight b + hammingWeight (L.mulVec b) ≥ 4 := by
-  intro b hb
-  revert hb
   decide
 
 theorem zero_fixed_points : ∀ b : Dim7 → F2, L.mulVec b + k ≠ b := by
-  intro b
   decide
 
 end AGL72
