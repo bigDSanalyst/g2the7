@@ -139,6 +139,27 @@ end AGL72
     }
   });
 
+
+  // SMT Minimality Portfolio Route
+  app.post('/api/smt-minimality', async (req, res) => {
+    try {
+      const { exec } = await import('child_process');
+      // Run the python script we pushed earlier
+      exec('python3 smt_portfolio.py', (error, stdout, stderr) => {
+        if (error) {
+          return res.status(500).json({ error: stderr || error.message });
+        }
+        res.status(200).json({ 
+          status: 'success', 
+          output: stdout.trim(),
+          proven: stdout.includes('UNSAT') 
+        });
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   const isProduction = process.env.NODE_ENV === 'production';
   if (!isProduction) {
     const vite = await createViteServer({

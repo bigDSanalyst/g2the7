@@ -1,3 +1,5 @@
+[![Lean 4 CI](https://github.com/bigDSanalyst/g2the7/actions/workflows/lean_action.yml/badge.svg)](https://github.com/bigDSanalyst/g2the7/actions/workflows/lean_action.yml)
+
 # AGL(7,2) Cryptographic Workbench & Autoformalization Platform
 
 [![Lean 4](https://img.shields.io/badge/formalization-Lean%204.7.0%20%7C%20Mathlib4-blue.svg)](#)
