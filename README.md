@@ -252,7 +252,7 @@ $$\text{Generator (AGL72)} \longrightarrow \text{Verifier (pq-verify)} \longrigh
 
 ```bash
 # Verify bit-level invertibility, branch number B(L)>=4, and zero fixed points
-cbmc agl72_harness.c --unwind 128 --bounds-check --pointer-check --unwinding-assertions
+cbmc agl72_harness.c --unwind 128 --bounds-check --pointer-check --unwinding-assertions --unwinding-assertions
 ```
 
 ---
