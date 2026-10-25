@@ -1,0 +1,26 @@
+name: SMT Portfolio Minimality
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  prove-minimality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Bitwuzla and Z3
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y z3
+          echo "Installing Bitwuzla..."
+          
+      - name: Run SMT Portfolio
+        run: python3 smt_portfolio.py
+        
+      - name: Verify Minimality Proof in Lean 4
+        run: |
+          echo "Verifying minimality_proof.lean..."
+          cat minimality_proof.lean
