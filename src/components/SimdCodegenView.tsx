@@ -47,6 +47,28 @@ interface SimdCodegenViewProps {
 }
 
 export const SimdCodegenView: React.FC<SimdCodegenViewProps> = ({
+  const [minimalityStatus, setMinimalityStatus] = useState<'idle' | 'checking' | 'proven' | 'failed'>('idle');
+  const [minimalityOutput, setMinimalityOutput] = useState<string>('');
+
+  const handleProveMinimality = async () => {
+    setMinimalityStatus('checking');
+    setMinimalityOutput('');
+    try {
+      const res = await fetch('/api/smt-minimality', { method: 'POST' });
+      const data = await res.json();
+      if (data.proven) {
+        setMinimalityStatus('proven');
+        setMinimalityOutput(data.output);
+      } else {
+        setMinimalityStatus('failed');
+        setMinimalityOutput(data.output || data.error);
+      }
+    } catch (e: any) {
+      setMinimalityStatus('failed');
+      setMinimalityOutput(e.message);
+    }
+  };
+
   matrix,
   displacementK,
   onOpenPqVerify,
