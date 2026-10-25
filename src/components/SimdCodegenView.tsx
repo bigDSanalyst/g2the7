@@ -38,8 +38,6 @@ import {
   Sparkles,
   Timer,
   FastForward,
-  Scale,
-  FileCode,
 } from 'lucide-react';
 
 interface SimdCodegenViewProps {
@@ -85,49 +83,6 @@ export const SimdCodegenView: React.FC<SimdCodegenViewProps> = ({
   const [raceRunning, setRaceRunning] = useState<boolean>(false);
   const [raceCycle, setRaceCycle] = useState<number>(0);
   const [raceSpeed, setRaceSpeed] = useState<number>(2);
-
-  // SMT Minimality Verification State (Bitwuzla QF_BV)
-  const [isCheckingMinimality, setIsCheckingMinimality] = useState<boolean>(false);
-  const [smtResult, setSmtResult] = useState<{
-    proven: boolean;
-    solver?: string;
-    status?: string;
-    target?: string;
-    proofCertificate?: string;
-    minimalInstructions?: number;
-    cycles?: number;
-    depth?: number;
-    executionTimeMs?: number;
-    output?: string;
-    smtLibProof?: string;
-  } | null>(null);
-  const [showSmtFormula, setShowSmtFormula] = useState<boolean>(false);
-
-  const checkMinimality = async () => {
-    setIsCheckingMinimality(true);
-    try {
-      const res = await fetch('/api/smt-minimality', { method: 'POST' });
-      const data = await res.json();
-      setSmtResult(data);
-      if (data.proven) {
-        alert("✅ Bitwuzla proved UNSAT: The AVX-512 circuit is mathematically minimal.");
-      } else {
-        alert("⚠️ Could not prove minimality. Solver output: " + data.output);
-      }
-    } catch (err: any) {
-      console.error('SMT check error:', err);
-      alert("⚠️ SMT check failed: " + (err?.message || String(err)));
-    } finally {
-      setIsCheckingMinimality(false);
-    }
-  };
-
-  React.useEffect(() => {
-    (window as any).checkMinimality = checkMinimality;
-    return () => {
-      delete (window as any).checkMinimality;
-    };
-  }, []);
 
   const egraphStages = getEGraphStages(matrix, displacementK);
   const codegenResult = generateSIMDCode(selectedTarget, matrix, displacementK);
@@ -221,15 +176,6 @@ export const SimdCodegenView: React.FC<SimdCodegenViewProps> = ({
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            <button
-              onClick={checkMinimality}
-              disabled={isCheckingMinimality}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono font-medium text-cyan-300 bg-cyan-950/40 border border-cyan-500/40 hover:bg-cyan-900/50 rounded-md transition-colors cursor-pointer disabled:opacity-50"
-              title="Formally prove circuit minimality with Bitwuzla SMT solver"
-            >
-              <Scale className="w-3.5 h-3.5 text-cyan-400" />
-              SMT Minimality
-            </button>
             <button
               onClick={handleCopy}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-300 bg-[#151b2a] border border-slate-700 hover:bg-slate-800 rounded-md transition-colors cursor-pointer"
@@ -1138,99 +1084,8 @@ export const SimdCodegenView: React.FC<SimdCodegenViewProps> = ({
           </div>
         </div>
 
-        {/* Right Column: SMT Circuit Minimality Prover & Bit-Exact Verification (5 Cols) */}
+        {/* Right Column: Bit-Exact Vector Emulator Verification (5 Cols) */}
         <div className="lg:col-span-5 space-y-4">
-          {/* SMT Circuit Minimality Card */}
-          <div className="p-5 rounded-lg bg-[#0e121d] border border-cyan-500/30 relative overflow-hidden">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <Scale className="w-4 h-4 text-cyan-400" />
-                <h4 className="text-xs font-semibold uppercase tracking-wider text-white">
-                  Circuit Minimality (SMT / Bitwuzla)
-                </h4>
-              </div>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-300 border border-cyan-500/30">
-                QF_BV UNSAT
-              </span>
-            </div>
-
-            <p className="text-xs text-slate-400 mb-3 leading-relaxed">
-              Formally proves that no circuit with &lt; 1 vector instruction can compute AGL(7,2) with branch metric &ge; 4. Bitwuzla refutes the existence of any sub-minimal circuit (UNSAT).
-            </p>
-
-            <button
-              onClick={checkMinimality}
-              disabled={isCheckingMinimality}
-              className="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-mono font-bold text-slate-950 bg-gradient-to-r from-cyan-400 to-emerald-400 hover:from-cyan-300 hover:to-emerald-300 rounded-md transition-all cursor-pointer shadow-sm disabled:opacity-50"
-            >
-              {isCheckingMinimality ? (
-                <>
-                  <Activity className="w-3.5 h-3.5 animate-spin text-slate-950" />
-                  Querying Bitwuzla QF_BV Solver...
-                </>
-              ) : (
-                <>
-                  <ShieldCheck className="w-3.5 h-3.5 text-slate-950" />
-                  Verify Circuit Minimality (Bitwuzla SMT)
-                </>
-              )}
-            </button>
-
-            {/* SMT Solver Output Card */}
-            {smtResult && (
-              <div className="mt-3 pt-3 border-t border-slate-800 space-y-2">
-                <div
-                  className={`p-2.5 rounded text-xs font-mono border ${
-                    smtResult.proven
-                      ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-                      : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
-                  }`}
-                >
-                  <div className="flex items-center justify-between font-bold mb-1">
-                    <span>
-                      {smtResult.proven
-                        ? '✅ Bitwuzla: UNSAT (Circuit is Minimal)'
-                        : '⚠️ Solver Result'}
-                    </span>
-                    <span className="text-[10px] text-slate-400 font-normal">
-                      {smtResult.solver}
-                    </span>
-                  </div>
-                  <div className="text-[11px] text-slate-300 whitespace-pre-wrap">
-                    {smtResult.output}
-                  </div>
-                  {smtResult.proofCertificate && (
-                    <div className="mt-2 text-[10px] flex items-center justify-between text-slate-400 border-t border-slate-800/80 pt-1.5">
-                      <span>
-                        Cert: <code className="text-cyan-400">{smtResult.proofCertificate}</code>
-                      </span>
-                      <span>Time: {smtResult.executionTimeMs}ms</span>
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <button
-                    onClick={() => setShowSmtFormula(!showSmtFormula)}
-                    className="text-[11px] font-mono text-cyan-400 hover:text-cyan-300 underline flex items-center gap-1 cursor-pointer"
-                  >
-                    <FileCode className="w-3 h-3" />
-                    {showSmtFormula ? 'Hide SMT-LIB2 Script' : 'Inspect SMT-LIB2 Script'}
-                  </button>
-                  <span className="text-[10px] font-mono text-slate-500">
-                    Logic: QF_BV
-                  </span>
-                </div>
-
-                {showSmtFormula && smtResult.smtLibProof && (
-                  <pre className="p-2.5 rounded bg-[#07090e] border border-slate-800 font-mono text-[10px] text-slate-300 overflow-x-auto max-h-44 leading-relaxed select-text">
-                    {smtResult.smtLibProof}
-                  </pre>
-                )}
-              </div>
-            )}
-          </div>
-
           <div className="p-5 rounded-lg bg-[#0e121d] border border-slate-800">
             <div className="flex items-center justify-between mb-3">
               <h4 className="text-xs font-semibold uppercase tracking-wider text-white">
