@@ -169,19 +169,7 @@ lemma k_not_in_range_L_sub_I :
 /-- Theorem: The affine transformation f(b) = L*b + k admits zero fixed points -/
 theorem zero_fixed_points :
     ∀ b : Dim7 → F2, affineMap b ≠ b := by
-  intro b
-  by_contra h_fixed
-  -- Unfold affine definition: L*b + k = b
-  dsimp [affineMap] at h_fixed
-  -- Rearrange: k = (1 - L)*b = -(L - 1)*b = (L - 1)*b in F_2
-  have h_eq : k = - (L_sub_I.mulVec b) := by
-    calc k = b - L.mulVec b := by linear_combination h_fixed
-    _ = - (L.mulVec b - 1.mulVec b) := by ring
-    _ = - (L_sub_I.mulVec b) := by simp [L_sub_I]
-  have h_in_range : k ∈ LinearMap.range (Matrix.toLin' L_sub_I) := by
-    use b
-    simp [Matrix.toLin'_apply, h_eq]
-  exact k_not_in_range_L_sub_I h_in_range
+  decide
 
 /-- Corollary: The set of fixed points is identically empty -/
 theorem fixed_points_empty :

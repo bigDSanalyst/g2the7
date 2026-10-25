@@ -132,12 +132,7 @@ lemma k_not_in_range_L_sub_I :
 
 /-- Zero Fixed Points Locked at the Type-Theory Level -/
 theorem zero_fixed_points : ∀ b : Dim7 → F2, L.mulVec b + k ≠ b := by
-  intro b
-  by_contra h_fixed
-  have h_in_range : k ∈ LinearMap.range (Matrix.toLin' (L - 1)) := by
-    -- Algebraic reduction to image membership
-    sorry
-  exact k_not_in_range_L_sub_I h_in_range
+  decide
 
 theorem fixed_points_empty : { b : Dim7 → F2 | L.mulVec b + k = b } = ∅ := by
   ext x
