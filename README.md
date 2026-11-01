@@ -2,7 +2,7 @@
 
 # AGL(7,2) Cryptographic Workbench & Autoformalization Platform
 
-[![Lean 4](https://img.shields.io/badge/formalization-Lean%204.7.0%20%7C%20Mathlib4-blue.svg)](#)
+[![Lean 4](https://img.shields.io/badge/formalization-Lean%204.7.0%20%7C%20kernel--checked-blue.svg)](#)
 [![SIMD Targets](https://img.shields.io/badge/SIMD-AVX--512%20GFNI%20%7C%20ARM%20NEON%20%7C%20AVX2-orange.svg)](#)
 [![Finite Field](https://img.shields.io/badge/algebra-F₂⁷%20%E2%8B%8A%20GL(7%2C2)-purple.svg)](#)
 [![Verifier Bridge](https://img.shields.io/badge/bridge-pq--verify-emerald.svg)](https://github.com/bigDSanalyst/pq-verify)
@@ -21,10 +21,10 @@ The explicit construction locks down a pristine, non-heuristic structural layer:
 - **Deterministic $\text{AGL}(7,2)$ butterfly reordering** for embedded 256-point state diffusion.
 
 This platform implements, verifies, and hardware-synthesizes this architecture through four pillars:
-1. **Machine-Checked Formalization (Lean 4 / Mathlib4)**: Formal proofs of matrix invertibility over $\mathbb{F}_2$, branch number bounds ($B(L) \ge 4$), and fixed-point set emptiness at the type-theory level.
+1. **Machine-Checked Formalization (Lean 4)**: Kernel-checked proofs that $L$ is invertible over $\mathbb{F}_2$, that $B(L) = 4$, and that $f$ has no fixed points (`agl72_proof.lean`, built by CI).
 2. **Reinforcement Learning Conjugacy Exploration**: Search over $\text{AGL}(7,2)$ conjugacy orbits ($L' = P L P^{-1}$) under hard invariant barriers, optimizing microarchitectural memory stride locality and differential diffusion.
 3. **E-Graph Multi-Target SIMD Synthesis**: Automated AST rewriting lowering discrete bit-matrix mappings into hardware vector instructions (AVX-512 GFNI, ARM NEON, AVX2, WebAssembly SIMD128, and CUDA).
-4. **Integration: The `pq-verify` Bridge**: Direct generation and export of Lean 4 proofs, C headers, and CBMC verification harnesses into `pq-verify`.
+4. **Verification bundle**: Export of the Lean 4 proof, C header and CBMC harness for a matrix, to check alongside `pq-verify` (see below for what pq-verify does and does not consume).
 
 ---
 
@@ -47,19 +47,21 @@ L = \begin{pmatrix}
 \end{pmatrix} \in \text{GL}(7,2)
 $$
 
-The constructive two-sided inverse $L^{-1} \in \text{GL}(7,2)$ is also circulant with polynomial $C^{-1}(x) = 1 + x + x^2 + x^3 + x^4$:
+The two-sided inverse $L^{-1} \in \text{GL}(7,2)$ is also circulant, with polynomial $C^{-1}(x) = 1 + x^2 + x^3 + x^5 + x^6$:
 
 $$
 L^{-1} = \begin{pmatrix}
-1 & 1 & 1 & 1 & 1 & 0 & 0 \\
-0 & 1 & 1 & 1 & 1 & 1 & 0 \\
-0 & 0 & 1 & 1 & 1 & 1 & 1 \\
-1 & 0 & 0 & 1 & 1 & 1 & 1 \\
-1 & 1 & 0 & 0 & 1 & 1 & 1 \\
-1 & 1 & 1 & 0 & 0 & 1 & 1 \\
-1 & 1 & 1 & 1 & 0 & 0 & 1
+1 & 0 & 1 & 1 & 0 & 1 & 1 \\
+1 & 1 & 0 & 1 & 1 & 0 & 1 \\
+1 & 1 & 1 & 0 & 1 & 1 & 0 \\
+0 & 1 & 1 & 1 & 0 & 1 & 1 \\
+1 & 0 & 1 & 1 & 1 & 0 & 1 \\
+1 & 1 & 0 & 1 & 1 & 1 & 0 \\
+0 & 1 & 1 & 0 & 1 & 1 & 1
 \end{pmatrix}, \quad L \cdot L^{-1} = L^{-1} \cdot L = I_7
 $$
+
+An earlier revision gave $C^{-1}(x) = 1 + x + x^2 + x^3 + x^4$. That is not the inverse: $(1 + x + x^2)(1 + x + x^2 + x^3 + x^4) = 1 + x^2 + x^3 + x^4 + x^6$ in $\mathbb{F}_2[x]/(x^7 - 1)$. The Lean proof rejected it.
 
 ### 2. Global Branch Number Invariant $B(L) = 4$
 The branch number $B(L)$ quantifies the differential diffusion capacity:
@@ -87,94 +89,49 @@ $$
 
 ---
 
-## 🔬 Breakthrough 1: Lean 4 Machine-Checked Formalization
+## 🔬 Lean 4 formalization
 
-The workbench formalizes the algebraic structural layer in **Lean 4 (v4.7.0)** with **Mathlib4**.
+`agl72_proof.lean` states the three properties above for the canonical $L$ and $k = \texttt{0x01}$, and proves each with `decide`:
 
-```lean
-import Mathlib.Data.Matrix.Basic
-import Mathlib.Data.ZMod.Basic
-import Mathlib.LinearAlgebra.Matrix.Determinant
-import Mathlib.Tactic
+| Theorem | Statement |
+|---|---|
+| `Linv_L`, `L_Linv` | $L^{-1}(L\,b) = b$ and $L(L^{-1}b) = b$ for all $b \in \mathbb{F}_2^7$ |
+| `branch_number_ge` | $4 \le \text{wt}(b) + \text{wt}(Lb)$ for all $b \neq 0$ |
+| `branch_number_exact` | $\text{wt}(e_0) + \text{wt}(Le_0) = 4$ |
+| `f_no_fixed_points` | $Lb \oplus k \neq b$ for all $b$ |
 
-namespace AGL72
-open Matrix
+Vectors are natural numbers below 128 (bit $j$ is $b_j$) and matrix rows are 7-bit masks, so the file needs only Lean core: no Mathlib.
 
-abbrev F2 := ZMod 2
-abbrev Dim7 := Fin 7
+**What "checked" means here.**
+- `decide` has the Lean kernel evaluate each statement over all 128 inputs. Each theorem depends only on the axiom `propext`.
+- `native_decide` was used before. It trusts compiled code instead of the kernel.
 
-/-- Affine General Linear Group Element in AGL(7,2) ≅ (F₂⁷, +) ⋊ GL(7,2) -/
-structure AGL72Element where
-  translation : Dim7 → F2
-  linear : Matrix Dim7 Dim7 F2
-  h_invertible : IsUnit (linear.det)
+**What CI checks** (`.github/workflows/lean_action.yml`):
+1. `lake build` succeeds.
+2. No `native_decide`, `sorry` or `admit` appears in tactic position.
+3. `#print axioms` on every theorem (`scripts/check_axioms.lean`) shows nothing beyond `propext`. This rejects `Lean.ofReduceBool` (from `native_decide`) and `sorryAx`.
+4. The workbench's exported Lean file for the canonical matrix (`scripts/gen-lean.ts`) is byte-identical to `agl72_proof.lean`.
 
-/-- 1. Full Invertibility of L in GL(7,2) -/
-theorem L_invertible : IsUnit (L.det) := by decide
+**Exports for other matrices.** The workbench exports a Lean file for whatever matrix is loaded. It states only properties that hold for that matrix: a singular matrix gets `L_singular`, a fixed point gets `f_fixed_point`. Such a file is not built by CI. Check it yourself:
 
-/-- Constructive two-sided matrix inverse verification -/
-theorem L_mul_L_inv_eq_one : L * L_inv = 1 := by decide
-
-/-- 2. Global Branch Number Invariant B(L) ≥ 4 across all 127 non-zero inputs -/
-theorem L_branch_number_ge_four :
-    ∀ b : Dim7 → F2, b ≠ 0 → hammingWeight b + hammingWeight (L.mulVec b) ≥ 4 := by
-  intro b hb
-  revert hb
-  decide
-
-/-- Bound is exact and attained at non-zero witness b₀ -/
-theorem L_branch_number_exact :
-    ∃ b : Dim7 → F2, b ≠ 0 ∧ hammingWeight b + hammingWeight (L.mulVec b) = 4 := by
-  use ![1, 0, 0, 0, 0, 0, 0]
-  decide
-
-/-- 3. Set Equality: k is strictly outside the range of (L - I) -/
-lemma k_not_in_range_L_sub_I :
-    k ∉ LinearMap.range (Matrix.toLin' (L - 1)) := by decide
-
-/-- Zero Fixed Points Locked at the Type-Theory Level -/
-theorem zero_fixed_points : ∀ b : Dim7 → F2, L.mulVec b + k ≠ b := by
-  decide
-
-theorem fixed_points_empty : { b : Dim7 → F2 | L.mulVec b + k = b } = ∅ := by
-  ext x
-  simp only [Set.mem_setOf_eq, Set.mem_empty_iff_false, iff_false]
-  exact zero_fixed_points x
-end AGL72
+```bash
+lean agl72_proof.lean    # Lean 4.7.0; ~15 s; exits 0 only if every theorem checks
 ```
 
-Note: The Lean 4 proofs in this repository are a structural template. To guarantee absolute soundness, the CI pipeline requires `lake build` to pass without `sorry` or `native_decide` axioms.
+To check the repository's file instead:
 
-### Local Verification with Lake
+```bash
+curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh
+lake build
+lake env lean scripts/check_axioms.lean    # every line should end in [propext]
+```
 
-To verify the generated Lean 4 proof file locally:
+**Circuit minimality.** An earlier revision claimed it, but nothing proved it:
+- The Lean theorem compared two constants (`1 ≤ 3`).
+- The SMT query was satisfiable by construction, so it could never return `unsat`.
+- The workflow never ran a solver.
 
-1. **Install Lean 4 and elan**:
-   ```bash
-   curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh
-   source ~/.profile
-   ```
-
-2. **Initialize a Lake Mathlib4 Project**:
-   ```bash
-   lake +leanprover/lean4:v4.7.0 new agl72_verify math
-   cd agl72_verify
-   lake update
-   ```
-
-3. **Verify the Formal Proof**:
-   Copy the exported `agl72_proof.lean` into `Agl72Verify.lean` and run:
-   ```bash
-   lake build
-   ```
-
-4. **Audit Axiomatic Dependencies**:
-   Verify that no unvetted axioms are introduced:
-   ```lean
-   #print axioms AGL72.L_branch_number_ge_four
-   #print axioms AGL72.zero_fixed_points
-   ```
-   *Expected output: `[propext, Classical.choice, Quot.sound]` (standard Lean foundational axioms only).*
+Those files are removed. A real minimality claim needs a query over all circuits below a cost bound that compute $L$.
 
 ---
 
@@ -185,6 +142,8 @@ While canonical matrix $L$ attains $B(L) = 4$, the general linear group $\text{G
 $$
 L' = P \cdot L \cdot P^{-1}, \quad P \in \text{GL}(7,2)
 $$
+
+> **Not verified.** The preset recorded as this search's output (`rl_optimized_diff`) is singular: rank 3, branch number 3. A conjugate of an invertible $L$ is invertible, and its $B$ would be checked against the barrier below, so the search or its recording is wrong. Treat the search as unverified until that is found.
 
 ### Objective Function & Hard Invariant Barriers
 
@@ -234,28 +193,24 @@ Translating the discrete affine mapping into hardware vector instructions via E-
 
 ---
 
-## 🔗 Integration: The `pq-verify` Bridge
+## 🔗 Verification bundle and `pq-verify`
 
-Generating highly optimized SIMD code is only half the battle; proving it matches the mathematical specification is the other. The AGL(7,2) Workbench is the **Generator** in a two-part ecosystem.
+**Export to pq-verify** produces a zip:
 
-Every batch export from this workbench produces:
+| File | What it is | How it is checked |
+|---|---|---|
+| `agl72_proof.lean` | Lean theorems for the loaded $L$ and $k$ | `lean agl72_proof.lean` |
+| `agl72_constants.h` | $L$, $L^{-1}$, GF2P8 immediate, nibble tables, 256-point permutation | by the harness |
+| `agl72_harness.c` | CBMC assertions: $L^{-1}L = I$, $B(L) \ge 4$, no fixed points, permutation is a bijection | `cbmc agl72_harness.c --unwind 257 --bounds-check --unwinding-assertions` |
+| `pq-verify.json` | a manifest, with the invariants the workbench computed | — |
 
-1. **The Lean 4 Specification**: The `AGL72Element` Mathlib4 proof.
-2. **The C Header & CBMC Harness**: Loop invariants and bounds ready for formal verification.
-3. **The AVX-512/ARM NEON Assembly**: Lowered via E-graphs.
+**What pq-verify does and doesn't do with it.**
+- pq-verify does not read this bundle.
+- Its `--audit-source DIR` runs CBMC over an ML-KEM or ML-DSA C source tree. It does not take arbitrary headers or Lean files, and it has no config-file input.
+- So the two run side by side: the commands above check this layer, and pq-verify checks the PQ scheme the layer sits in.
+- Wiring the layer into pq-verify itself would be a change to pq-verify.
 
-These artifacts are designed to be piped directly into **`pq-verify`**, the open-source verification engine. This workbench generates C headers and CBMC harnesses. The exported code can be verified directly with CBMC, or passed to `pq-verify`'s `--audit-source` pipeline.
-
-$$\text{Generator (AGL72)} \longrightarrow \text{Verifier (pq-verify)} \longrightarrow \text{Silicon}$$
-
-**Link to Verifier**: [https://github.com/bigDSanalyst/pq-verify](https://github.com/bigDSanalyst/pq-verify)
-
-### Running the CBMC Verification Harness
-
-```bash
-# Verify bit-level invertibility, branch number B(L)>=4, and zero fixed points
-cbmc agl72_harness.c --unwind 128 --bounds-check --pointer-check --unwinding-assertions --unwinding-assertions
-```
+**Link to pq-verify**: [https://github.com/bigDSanalyst/pq-verify](https://github.com/bigDSanalyst/pq-verify)
 
 ---
 
@@ -274,7 +229,7 @@ Artifacts, generated constants, and formal verification proofs can be anchored t
 ## 🛠️ Project Structure
 
 ```
-├── server.ts                 # Full-stack Express backend with Gemini API & pq-verify bundle export
+├── server.ts                 # Express backend with Gemini API
 ├── src/
 │   ├── components/
 │   │   ├── Navbar.tsx                 # Top navigation bar with Export to pq-verify CTA
@@ -288,7 +243,7 @@ Artifacts, generated constants, and formal verification proofs can be anchored t
 │   ├── math/
 │   │   ├── algebra.ts                 # Exact GF(2) matrix multiplication, rank & branch engine
 │   │   ├── butterfly.ts               # 16-diff x 8-stage diffusion & permutation engine
-│   │   ├── lean4Proofs.ts             # Mathlib4 theorem generation & proof tactics
+│   │   ├── lean4Proofs.ts             # Lean 4 proof generation (decide, no Mathlib)
 │   │   ├── rlConjugacy.ts             # Conjugacy exploration, Pareto frontier & distance metrics
 │   │   ├── simdLatency.ts             # Microarchitectural cycle latency modeling
 │   │   ├── egraphSimd.ts              # E-graph saturation rewriting & SIMD emitters
@@ -309,7 +264,7 @@ Artifacts, generated constants, and formal verification proofs can be anchored t
 ### Prerequisites
 - [Node.js](https://nodejs.org/) (v20.0.0 or later)
 - `npm` or `pnpm`
-- *(Optional)* [Lean 4](https://lean-lang.org/) (v4.7.0+) with `elan` and `Mathlib4` to verify exported `.lean` proof files locally.
+- *(Optional)* [Lean 4](https://lean-lang.org/) v4.7.0 (via `elan`; no Mathlib needed) to check exported `.lean` files.
 - *(Optional)* [CBMC](https://www.cprover.org/cbmc/) to execute bounded model checking on exported harnesses.
 
 ### Installation & Launch

@@ -231,20 +231,19 @@ export const PRESET_MATRICES: MatrixPreset[] = [
   },
   {
     id: 'circulant_c5',
-    name: 'Dual Circulant C*(x) = 1 + x + x³',
-    tagline: 'High algebraic degree, zero fixed points',
+    name: 'Circulant 1 + x + x³ (singular)',
+    tagline: 'Not in GL(7,2): rank 4',
     matrix: [11, 22, 44, 88, 49, 98, 69], // firstRow = 11 (0b0001011)
     displacementK: 0x01,
-    description: 'Circulant generator 1 + x + x³. Possesses exact branch number 4 with balanced diffusion profile across odd and even sub-blocks.',
+    description: '1 + x + x³ divides x⁷ − 1 over F_2, so this circulant is singular (rank 4) and is not in GL(7,2). A negative example: it meets the branch-number bound B = 4 while failing invertibility.',
   },
   {
     id: 'rl_optimized_diff',
-    name: 'RL-Synthesized Conjugate L_opt',
-    tagline: 'Conjugate class with maximized 7-stage diffusion',
-    // Invertible conjugate P * L * P^(-1) found via RL search with high diffusion rate:
+    name: 'RL search output (singular)',
+    tagline: 'Not in GL(7,2): rank 3, B = 3',
     matrix: [23, 46, 92, 57, 114, 101, 75],
     displacementK: 0x01,
-    description: 'Discovered by reinforcement learning policy exploring AGL(7,2) conjugacy classes under the hard barrier B(L) = 4 and k ∉ im(L ⊕ I). Achieves +18.4% faster 7-stage differential dispersion.',
+    description: 'Recorded as the output of the RL conjugacy search, but it is singular (rank 3) with branch number 3. A conjugate P·L·P⁻¹ of an invertible L is invertible, so this is not one, and it is outside the B(L) = 4 barrier. A negative example until the search is fixed.',
   },
   {
     id: 'companion_galois',
