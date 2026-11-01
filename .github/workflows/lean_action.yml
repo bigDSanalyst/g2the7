@@ -11,9 +11,34 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Build Lean project
         uses: leanprover/lean-action@v1
         with:
           auto-config: true
           use-github-cache: true
+
+      # The proofs must be kernel-checked: no native_decide (trusts the
+      # compiler), no sorry, no admit, in tactic position. A quick textual
+      # pass; the axiom check below is the one that cannot be phrased around.
+      - name: Refuse unchecked proof tokens
+        run: |
+          if grep -nE '(^|:=|by|;|<;>|\()\s*(native_decide|sorry|admit)\b' agl72_proof.lean; then
+            echo "::error::forbidden token in agl72_proof.lean"
+            exit 1
+          fi
+
+      # The same rule, checked on what Lean compiled rather than on the text.
+      - name: Theorems depend on no axiom but propext
+        run: |
+          out=$(lake env lean scripts/check_axioms.lean)
+          echo "$out"
+          if echo "$out" | grep -v "depends on axioms: \[propext\]$" | grep -q .; then
+            echo "::error::a theorem depends on an axiom other than propext"
+            exit 1
+          fi
+
+      # The workbench exports the generator's output; this is the file CI
+      # checks. They must be the same bytes.
+      - name: Exported proof is the checked proof
+        run: npx --yes tsx@4.21.0 scripts/gen-lean.ts | diff -u agl72_proof.lean -

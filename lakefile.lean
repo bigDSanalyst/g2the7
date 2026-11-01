@@ -1,10 +1,9 @@
 import Lake
 open Lake DSL
 
+-- No dependencies: the proofs use only Lean core, so `lake build` needs
+-- no Mathlib download.
 package agl72_verify
-
-require mathlib from git
-  "https://github.com/leanprover-community/mathlib4.git" @ "v4.7.0"
 
 @[default_target]
 lean_lib AGL72 where
